@@ -3,6 +3,8 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
 const aiEngine = require('../ai-engine');
+const authRoutes = require('./routes/auth');
+const authMiddleware = require('./middleware/authMiddleware');
 
 // Load environment variables
 dotenv.config();
@@ -17,13 +19,16 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Auth routes
+app.use('/api/auth', authRoutes);
+
 // Routes
 /**
  * @route POST /api/chat
  * @desc Process a conversation and return the assistant response.
- * @access Public (Will be secured in Phase 2)
+ * @access Protected (requires JWT)
  */
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', authMiddleware, async (req, res) => {
   const { messages } = req.body;
 
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
