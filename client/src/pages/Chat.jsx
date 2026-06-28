@@ -1,21 +1,38 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import { useConversations } from '../context/ConversationContext';
+import ConversationSidebar from '../components/ConversationSidebar';
 import {
   Send, Terminal, Settings, Mic, MicOff, Cpu, Layers, Bot, User, RefreshCw,
-  AlertTriangle, Compass, Database
+  AlertTriangle, Compass, Database, Menu, Loader2
 } from 'lucide-react';
 import '../App.css';
 
 function Chat() {
   const { isAuthenticated, loading: authLoading } = useAuth();
-  const [messages, setMessages] = useState([]);
+  const {
+    conversations,
+    activeConversationId,
+    messages,
+    loadingConversations,
+    loadingMessages,
+    creatingConversation,
+    error,
+    loadConversation,
+    createConversation,
+    saveMessage,
+    setActiveConversationId,
+    clearError
+  } = useConversations();
+
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isServerOnline, setIsServerOnline] = useState(false);
   const [serverConfig, setServerConfig] = useState({ provider: 'mock', port: 5000 });
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [llmProvider, setLlmProvider] = useState('mock');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Auth check: redirect if not authenticated
@@ -69,9 +86,34 @@ function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
+  // Clear error when user starts typing
+  useEffect(() => {
+    if (error) {
+      clearError();
+    }
+  }, [inputValue]);
+
   // Send message
   const handleSendMessage = async (text) => {
     if (!text.trim()) return;
+    if (!isServerOnline) {
+      alert('Backend server is offline. Please check server status.');
+      return;
+    }
+
+    // If no active conversation, create one first
+    let currentConversationId = activeConversationId;
+    if (!currentConversationId) {
+      try {
+        const newConversation = await createConversation('New Conversation');
+        currentConversationId = newConversation.id;
+        setSidebarOpen(false);
+      } catch (err) {
+        console.error('Failed to create conversation:', err);
+        alert('Failed to create conversation. Please try again.');
+        return;
+      }
+    }
 
     const newUserMessage = {
       id: Date.now().toString(),
@@ -80,7 +122,6 @@ function Chat() {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
-    setMessages((prev) => [...prev, newUserMessage]);
     setInputValue('');
     setIsLoading(true);
 
@@ -100,7 +141,13 @@ function Chat() {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
-      setMessages((prev) => [...prev, newAssistantMessage]);
+      // Auto-save both messages to backend
+      if (currentConversationId) {
+        // Save user message
+        await saveMessage(currentConversationId, 'user', text);
+        // Save assistant message
+        await saveMessage(currentConversationId, 'assistant', newAssistantMessage.content);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
 
@@ -111,7 +158,7 @@ function Chat() {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
-      setMessages((prev) => [...prev, systemErrorMessage]);
+      // Still show the error message in UI
     } finally {
       setIsLoading(false);
     }
@@ -127,90 +174,49 @@ function Chat() {
     handleSendMessage(question);
   };
 
+  const handleNewChat = async () => {
+    try {
+      await createConversation('New Conversation');
+      setSidebarOpen(false);
+    } catch (err) {
+      console.error('Failed to create conversation:', err);
+    }
+  };
+
+  const getActiveConversationTitle = () => {
+    if (!activeConversationId) return 'JARVIS';
+    const conversation = conversations.find(c => c.id === activeConversationId);
+    return conversation?.title || 'JARVIS';
+  };
+
   return (
     <div className="app-container">
       <div className="scanlines"></div>
 
-      {/* Sidebar Panel */}
-      <aside className="sidebar">
-        <div className="logo-section">
-          <div className="logo-circle">
-            <Terminal size={20} className="neon-text-cyan" />
-          </div>
-          <div className="logo-text">
-            <h1>JARVIS</h1>
-            <span>PERSONAL AI ASSISTANT</span>
-          </div>
-        </div>
+      {/* Mobile menu button */}
+      <button
+        id="btn_menu_toggle"
+        className="mobile-menu-btn"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        style={{ display: 'none' }}
+      >
+        <Menu size={24} />
+      </button>
 
-        {/* System Diagnostics */}
-        <div className="system-status">
-          <h3 className="status-title">SYSTEM DIAGNOSTICS</h3>
-          <div className="status-list">
-            <div className="status-item">
-              <span className="status-label">Core Status</span>
-              <span className="status-value">
-                <span className={`pulse-dot ${!isServerOnline ? 'offline' : ''}`}></span>
-                {isServerOnline ? 'ONLINE' : 'OFFLINE'}
-              </span>
-            </div>
-            <div className="status-item">
-              <span className="status-label">LLM Provider</span>
-              <span className="status-value neon-text-cyan">
-                {isServerOnline ? serverConfig.provider.toUpperCase() : 'N/A'}
-              </span>
-            </div>
-            <div className="status-item">
-              <span className="status-label">AI Link Port</span>
-              <span className="status-value">{isServerOnline ? serverConfig.port : 'N/A'}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Memory & Context Preferences (Phase 4 mock preview) */}
-        <div className="preferences-panel">
-          <h3 className="status-title">ACTIVE CONTEXT</h3>
-          <div className="glass-card pref-card">
-            <h3><Database size={14} style={{ marginRight: '6px', verticalAlign: 'middle', color: 'var(--accent-cyan)' }} /> Memory Bank</h3>
-            <p>SQLite Local Memory (Inactive in Phase 1). Memory will persist across sessions starting in Phase 4.</p>
-          </div>
-          <div className="glass-card pref-card">
-            <h3><Layers size={14} style={{ marginRight: '6px', verticalAlign: 'middle', color: 'var(--accent-purple)' }} /> Core Directives</h3>
-            <p>Be a helpful, highly responsive AI assistant. Speak in a sophisticated, slightly British manner.</p>
-          </div>
-        </div>
-
-        {/* Session Info */}
-        <div className="sidebar-footer">
-          <div className="status-item">
-            <span className="status-label">Session</span>
-            <span className="status-value neon-text-cyan">SECURED</span>
-          </div>
-          <button
-            id="btn_refresh"
-            className="action-btn"
-            title="Refresh Server Status"
-            onClick={checkServerStatus}
-          >
-            <RefreshCw size={18} />
-          </button>
-          <button
-            id="btn_settings"
-            className="settings-btn"
-            onClick={() => setShowConfigModal(true)}
-          >
-            <Settings size={18} style={{ marginRight: '10px' }} />
-            AI Core Configuration
-          </button>
-        </div>
-      </aside>
+      {/* Conversation Sidebar */}
+      <ConversationSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
       {/* Main Chat Area */}
       <main className="chat-main">
         <div className="chat-header">
           <div className="chat-title">
             <Bot size={24} className="neon-text-cyan" style={{ marginRight: '12px' }} />
-            <span className="neon-text-cyan" style={{ fontSize: '18px', fontWeight: 600 }}>JARVIS</span>
+            <span className="neon-text-cyan" style={{ fontSize: '18px', fontWeight: 600 }}>
+              {getActiveConversationTitle()}
+            </span>
           </div>
           <div className="chat-subtitle">
             <Compass size={14} style={{ marginRight: '6px' }} />
@@ -218,11 +224,30 @@ function Chat() {
           </div>
         </div>
 
+        {/* Error display */}
+        {error && (
+          <div className="chat-error-banner">
+            <AlertTriangle size={16} style={{ marginRight: '8px' }} />
+            {error}
+            <button onClick={clearError} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>✕</button>
+          </div>
+        )}
+
+        {/* Loading messages overlay */}
+        {loadingMessages && (
+          <div className="messages-loading-overlay">
+            <Loader2 size={32} className="spin" style={{ color: '#00f0ff' }} />
+            <span>Loading messages...</span>
+          </div>
+        )}
+
         <div className="chat-messages">
-          {messages.length === 0 && (
+          {messages.length === 0 && !loadingMessages && (
             <div style={{ textAlign: 'center', marginTop: '60px', color: 'var(--text-muted)' }}>
               <AlertTriangle size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
-              <p style={{ fontSize: '16px', fontFamily: 'sans-serif', marginBottom: '8px' }}>No messages yet</p>
+              <p style={{ fontSize: '16px', fontFamily: 'sans-serif', marginBottom: '8px' }}>
+                {activeConversationId ? 'No messages in this conversation' : 'Select or create a conversation to begin'}
+              </p>
               <p style={{ fontSize: '13px', fontFamily: 'monospace' }}>Initialize a command or question below</p>
             </div>
           )}
@@ -265,7 +290,7 @@ function Chat() {
             </div>
           )}
 
-          {messages.length === 2 && !isLoading && (
+          {messages.length === 2 && !isLoading && !loadingMessages && (
             <div className="starter-grid">
               <button className="starter-card" onClick={() => handleStarterClick('Summarize our conversation so far')}>
                 <RefreshCw size={16} style={{ marginRight: '8px' }} />

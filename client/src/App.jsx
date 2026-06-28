@@ -3,6 +3,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Chat from './pages/Chat';
+import { ConversationProvider } from './context/ConversationContext';
 
 function App() {
   return (
@@ -14,7 +15,9 @@ function App() {
           path="/chat"
           element={
             <ProtectedRoute>
-              <Chat />
+              <ConversationProvider>
+                <Chat />
+              </ConversationProvider>
             </ProtectedRoute>
           }
         />

@@ -29,6 +29,44 @@ function initializeDatabase() {
       console.log('[DB] Users table ready.');
     }
   });
+
+  const conversationsSql = `
+    CREATE TABLE IF NOT EXISTS conversations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `;
+
+  db.run(conversationsSql, (err) => {
+    if (err) {
+      console.error('[DB] Error creating conversations table:', err.message);
+    } else {
+      console.log('[DB] Conversations table ready.');
+    }
+  });
+
+  const messagesSql = `
+    CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      conversation_id INTEGER NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+    )
+  `;
+
+  db.run(messagesSql, (err) => {
+    if (err) {
+      console.error('[DB] Error creating messages table:', err.message);
+    } else {
+      console.log('[DB] Messages table ready.');
+    }
+  });
 }
 
 module.exports = db;

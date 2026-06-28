@@ -22,6 +22,10 @@ app.use(express.json());
 // Auth routes
 app.use('/api/auth', authRoutes);
 
+// Conversation routes
+const conversationRoutes = require('./routes/conversations');
+app.use('/api/conversations', conversationRoutes);
+
 // Routes
 /**
  * @route POST /api/chat
