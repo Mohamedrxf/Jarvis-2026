@@ -3,6 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
 const aiEngine = require('../ai-engine');
+const memoryService = require('./services/memoryService');
 const authRoutes = require('./routes/auth');
 const authMiddleware = require('./middleware/authMiddleware');
 
@@ -26,6 +27,10 @@ app.use('/api/auth', authRoutes);
 const conversationRoutes = require('./routes/conversations');
 app.use('/api/conversations', conversationRoutes);
 
+// Memory routes
+const memoryRoutes = require('./routes/memories');
+app.use('/api/memories', memoryRoutes);
+
 // Routes
 /**
  * @route POST /api/chat
@@ -43,7 +48,23 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
   }
 
   try {
-    const assistantResponse = await aiEngine.generateResponse(messages);
+    // Inject memory context into the messages
+    const userId = req.user.id;
+    const memoryContext = await memoryService.getMemoryContext(userId);
+
+    let enhancedMessages = messages;
+    if (memoryContext) {
+      // Add memory context as a system message at the beginning
+      enhancedMessages = [
+        {
+          role: 'system',
+          content: memoryContext
+        },
+        ...messages
+      ];
+    }
+
+    const assistantResponse = await aiEngine.generateResponse(enhancedMessages);
     return res.json({
       success: true,
       response: assistantResponse
