@@ -76,6 +76,10 @@ function initializeDatabase() {
       content TEXT NOT NULL,
       confidence REAL DEFAULT 1.0,
       source TEXT DEFAULT 'manual',
+      importance_score REAL DEFAULT 0.5,
+      last_accessed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      access_count INTEGER DEFAULT 0,
+      decay_rate REAL DEFAULT 0.01,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE

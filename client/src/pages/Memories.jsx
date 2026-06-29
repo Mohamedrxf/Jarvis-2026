@@ -11,12 +11,26 @@ const CATEGORIES = [
 ];
 
 function Memories() {
-    const { memories, loading, error, stats, createMemory, deleteMemory, searchMemories, fetchMemories } = useMemory();
+    const {
+        memories,
+        loading,
+        error,
+        stats,
+        createMemory,
+        deleteMemory,
+        searchMemories,
+        fetchMemories,
+        boostMemory,
+        fetchEvolutionStats,
+        recalculateAllImportance
+    } = useMemory();
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [showAddForm, setShowAddForm] = useState(false);
     const [newMemory, setNewMemory] = useState({ category: 'preferences', content: '', confidence: 1.0 });
     const [searchResults, setSearchResults] = useState(null);
+    const [evolutionStats, setEvolutionStats] = useState(null);
+    const [showEvolutionPanel, setShowEvolutionPanel] = useState(false);
 
     useEffect(() => {
         fetchMemories();
@@ -74,6 +88,36 @@ function Memories() {
 
     const displayMemories = searchResults || memories;
 
+    const handleBoostMemory = async (memoryId) => {
+        try {
+            await boostMemory(memoryId);
+        } catch (err) {
+            console.error('Failed to boost memory:', err);
+        }
+    };
+
+    const handleToggleEvolutionPanel = async () => {
+        if (!showEvolutionPanel) {
+            try {
+                const evoStats = await fetchEvolutionStats();
+                setEvolutionStats(evoStats);
+            } catch (err) {
+                console.error('Failed to fetch evolution stats:', err);
+            }
+        }
+        setShowEvolutionPanel(!showEvolutionPanel);
+    };
+
+    const handleRecalculate = async () => {
+        if (!window.confirm('Recalculate importance for all memories? This may take a moment.')) return;
+        try {
+            const result = await recalculateAllImportance();
+            alert(result.message);
+        } catch (err) {
+            console.error('Failed to recalculate:', err);
+        }
+    };
+
     return (
         <div className="memories-page">
             <div className="memories-header">
@@ -97,6 +141,45 @@ function Memories() {
                             <span className="stat-label">Avg Confidence</span>
                         </div>
                     )}
+                </div>
+            )}
+
+            <div className="memories-controls">
+                <button
+                    className="btn-evolution"
+                    onClick={handleToggleEvolutionPanel}
+                >
+                    {showEvolutionPanel ? 'Hide' : 'Show'} Evolution Stats
+                </button>
+                <button
+                    className="btn-recalculate"
+                    onClick={handleRecalculate}
+                >
+                    Recalculate All
+                </button>
+            </div>
+
+            {showEvolutionPanel && evolutionStats && (
+                <div className="evolution-panel">
+                    <h3>Memory Evolution Statistics</h3>
+                    <div className="evolution-stats-grid">
+                        <div className="evolution-stat">
+                            <span className="evolution-label">Avg Importance</span>
+                            <span className="evolution-value">{(evolutionStats.averageImportance * 100).toFixed(0)}%</span>
+                        </div>
+                        <div className="evolution-stat">
+                            <span className="evolution-label">Avg Access Count</span>
+                            <span className="evolution-value">{evolutionStats.averageAccessCount.toFixed(1)}</span>
+                        </div>
+                        <div className="evolution-stat">
+                            <span className="evolution-label">Recently Accessed</span>
+                            <span className="evolution-value">{evolutionStats.recentlyAccessed}</span>
+                        </div>
+                        <div className="evolution-stat">
+                            <span className="evolution-label">Stale Memories</span>
+                            <span className="evolution-value">{evolutionStats.staleMemories}</span>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -228,6 +311,11 @@ function Memories() {
                                     <span className="memory-confidence">
                                         {(memory.confidence * 100).toFixed(0)}%
                                     </span>
+                                    {memory.importance_score !== undefined && (
+                                        <span className="memory-importance">
+                                            Importance: {(memory.importance_score * 100).toFixed(0)}%
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="memory-content">
                                     {memory.content}
@@ -236,9 +324,26 @@ function Memories() {
                                     <span className="memory-source">
                                         {memory.source === 'extracted' ? '🤖 Extracted' : '✋ Manual'}
                                     </span>
+                                    {memory.access_count !== undefined && (
+                                        <span className="memory-access-count">
+                                            Used: {memory.access_count}x
+                                        </span>
+                                    )}
+                                    {memory.last_accessed_at && (
+                                        <span className="memory-last-accessed">
+                                            Last used: {new Date(memory.last_accessed_at).toLocaleDateString()}
+                                        </span>
+                                    )}
                                     <span className="memory-date">
-                                        {new Date(memory.updated_at).toLocaleDateString()}
+                                        Created: {new Date(memory.created_at).toLocaleDateString()}
                                     </span>
+                                    <button
+                                        className="btn-boost"
+                                        onClick={() => handleBoostMemory(memory.id)}
+                                        title="Boost importance"
+                                    >
+                                        ⬆️
+                                    </button>
                                     <button
                                         className="btn-delete"
                                         onClick={() => handleDeleteMemory(memory.id)}

@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const memoryEvolutionService = require('./memoryEvolutionService');
 
 class MemoryService {
     /**
@@ -227,43 +228,58 @@ class MemoryService {
     }
 
     /**
-     * Get memories formatted for AI prompt injection
+     * Get memories formatted for AI prompt injection (with ranking)
      * @param {number} userId - User ID
-     * @returns {Promise<string>} Formatted memory context
+     * @returns {Promise<string>} Formatted memory context with ranked memories
      */
     async getMemoryContext(userId) {
         try {
-            const memories = await this.getMemories(userId);
-
-            if (memories.length === 0) {
-                return '';
-            }
-
-            // Group by category
-            const grouped = {};
-            memories.forEach(memory => {
-                if (!grouped[memory.category]) {
-                    grouped[memory.category] = [];
-                }
-                grouped[memory.category].push(memory.content);
-            });
-
-            // Format for prompt
-            let context = '\n\n[USER MEMORIES - Use these to personalize responses]\n';
-
-            for (const [category, items] of Object.entries(grouped)) {
-                context += `\n${category.toUpperCase()}:\n`;
-                items.forEach(item => {
-                    context += `- ${item}\n`;
-                });
-            }
-
-            context += '\n[END USER MEMORIES]\n';
+            // Use evolution service to get ranked memories
+            const context = await memoryEvolutionService.getRankedMemoryContext(userId);
             return context;
         } catch (error) {
             console.error('[MemoryService] Error getting memory context:', error.message);
             return '';
         }
+    }
+
+    /**
+     * Update memory usage statistics (called when memory is used in prompt)
+     * @param {number} memoryId - Memory ID
+     * @param {number} userId - User ID
+     * @returns {Promise<Object>} Updated memory
+     */
+    async updateMemoryUsage(memoryId, userId) {
+        return await memoryEvolutionService.updateMemoryUsage(memoryId, userId);
+    }
+
+    /**
+     * Boost memory importance (called when memory is relevant in AI response)
+     * @param {number} memoryId - Memory ID
+     * @param {number} userId - User ID
+     * @returns {Promise<Object>} Updated memory
+     */
+    async boostMemory(memoryId, userId) {
+        return await memoryEvolutionService.boostMemory(memoryId, userId);
+    }
+
+    /**
+     * Get ranked memories for a user
+     * @param {number} userId - User ID
+     * @param {number} limit - Maximum number of memories
+     * @returns {Promise<Array>} Ranked memories
+     */
+    async getRankedMemories(userId, limit = 10) {
+        return await memoryEvolutionService.getRankedMemories(userId, limit);
+    }
+
+    /**
+     * Get memory evolution statistics
+     * @param {number} userId - User ID
+     * @returns {Promise<Object>} Evolution statistics
+     */
+    async getEvolutionStats(userId) {
+        return await memoryEvolutionService.getEvolutionStats(userId);
     }
 
     /**

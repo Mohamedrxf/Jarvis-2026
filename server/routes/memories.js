@@ -27,4 +27,16 @@ router.post('/extract', memoryController.extractMemories);
 // GET /api/memories/stats - Get memory statistics
 router.get('/stats', memoryController.getStats);
 
+// GET /api/memories/ranked - Get ranked memories by relevance
+router.get('/ranked', memoryController.getRankedMemories);
+
+// GET /api/memories/evolution-stats - Get memory evolution statistics
+router.get('/evolution-stats', memoryController.getEvolutionStats);
+
+// POST /api/memories/:id/boost - Boost memory importance
+router.post('/:id/boost', memoryController.boostMemory);
+
+// POST /api/memories/recalculate - Recalculate all memory importance
+router.post('/recalculate', memoryController.recalculateAllImportance);
+
 module.exports = router;

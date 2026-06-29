@@ -120,6 +120,24 @@
     background: #059669;
 }
 
+.btn-evolution {
+    background: #8b5cf6;
+    color: white;
+}
+
+.btn-evolution:hover {
+    background: #7c3aed;
+}
+
+.btn-recalculate {
+    background: #f59e0b;
+    color: white;
+}
+
+.btn-recalculate:hover {
+    background: #d97706;
+}
+
 .add-memory-form {
     background: white;
     border: 1px solid #e0e0e0;
@@ -351,6 +369,85 @@
 
 .btn-delete:hover {
     background: #fee;
+}
+
+.btn-boost {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.25rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.btn-boost:hover {
+    background: #fef3c7;
+}
+
+.memory-importance {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    background: #fef3c7;
+    color: #d97706;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.memory-access-count {
+    color: #666;
+    font-weight: 500;
+}
+
+.memory-last-accessed {
+    color: #999;
+}
+
+.evolution-panel {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.evolution-panel h3 {
+    margin: 0 0 1rem 0;
+    color: #1a1a1a;
+    font-size: 1.25rem;
+}
+
+.evolution-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.evolution-stat {
+    background: #f9fafb;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+}
+
+.evolution-label {
+    display: block;
+    font-size: 0.875rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+}
+
+.evolution-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #8b5cf6;
 }
 
 @media (max-width: 768px) {

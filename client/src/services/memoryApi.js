@@ -148,6 +148,81 @@ class MemoryApi {
             throw error;
         }
     }
+
+    async getRankedMemories(limit = 10) {
+        try {
+            const url = `${this.baseUrl}/ranked?limit=${limit}`;
+            const response = await fetch(url, {
+                headers: this.getAuthHeader()
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to fetch ranked memories');
+            }
+
+            return data.memories;
+        } catch (error) {
+            console.error('[MemoryApi] Error fetching ranked memories:', error);
+            throw error;
+        }
+    }
+
+    async getEvolutionStats() {
+        try {
+            const response = await fetch(`${this.baseUrl}/evolution-stats`, {
+                headers: this.getAuthHeader()
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to fetch evolution stats');
+            }
+
+            return data.stats;
+        } catch (error) {
+            console.error('[MemoryApi] Error fetching evolution stats:', error);
+            throw error;
+        }
+    }
+
+    async boostMemory(memoryId) {
+        try {
+            const response = await fetch(`${this.baseUrl}/${memoryId}/boost`, {
+                method: 'POST',
+                headers: this.getAuthHeader()
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to boost memory');
+            }
+
+            return data.memory;
+        } catch (error) {
+            console.error('[MemoryApi] Error boosting memory:', error);
+            throw error;
+        }
+    }
+
+    async recalculateAllImportance() {
+        try {
+            const response = await fetch(`${this.baseUrl}/recalculate`, {
+                method: 'POST',
+                headers: this.getAuthHeader()
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to recalculate importance');
+            }
+
+            return data;
+        } catch (error) {
+            console.error('[MemoryApi] Error recalculating importance:', error);
+            throw error;
+        }
+    }
 }
 
 export default new MemoryApi();

@@ -119,6 +119,68 @@ export const MemoryProvider = ({ children }) => {
         }
     }, []);
 
+    // Fetch ranked memories
+    const fetchRankedMemories = useCallback(async (limit = 10) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const rankedMemories = await memoryApi.getRankedMemories(limit);
+            setMemories(rankedMemories);
+            return rankedMemories;
+        } catch (err) {
+            setError(err.message);
+            console.error('Failed to fetch ranked memories:', err);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    // Fetch evolution stats
+    const fetchEvolutionStats = useCallback(async () => {
+        try {
+            const evolutionStats = await memoryApi.getEvolutionStats();
+            return evolutionStats;
+        } catch (err) {
+            console.error('Failed to fetch evolution stats:', err);
+            throw err;
+        }
+    }, []);
+
+    // Boost memory importance
+    const boostMemory = useCallback(async (memoryId) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const boostedMemory = await memoryApi.boostMemory(memoryId);
+            setMemories(prev => prev.map(m => m.id === memoryId ? boostedMemory : m));
+            return boostedMemory;
+        } catch (err) {
+            setError(err.message);
+            console.error('Failed to boost memory:', err);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    // Recalculate all memory importance
+    const recalculateAllImportance = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const result = await memoryApi.recalculateAllImportance();
+            await fetchMemories();
+            return result;
+        } catch (err) {
+            setError(err.message);
+            console.error('Failed to recalculate importance:', err);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, [fetchMemories]);
+
     // Load memories on mount
     useEffect(() => {
         fetchMemories();
@@ -137,6 +199,10 @@ export const MemoryProvider = ({ children }) => {
         searchMemories,
         extractMemories,
         fetchStats,
+        fetchRankedMemories,
+        fetchEvolutionStats,
+        boostMemory,
+        recalculateAllImportance,
         clearError: () => setError(null)
     };
 

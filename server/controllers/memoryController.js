@@ -259,6 +259,93 @@ const memoryController = {
                     error: 'Failed to fetch memory statistics.'
                 });
             });
+    },
+
+    // GET /api/memories/ranked - Get ranked memories by relevance
+    getRankedMemories: (req, res) => {
+        const userId = req.user.id;
+        const { limit } = req.query;
+
+        const memoryLimit = limit ? parseInt(limit) : 10;
+
+        memoryService.getRankedMemories(userId, memoryLimit)
+            .then(memories => {
+                return res.json({
+                    success: true,
+                    memories: memories,
+                    count: memories.length
+                });
+            })
+            .catch(error => {
+                console.error('[MemoryController] Error fetching ranked memories:', error.message);
+                return res.status(500).json({
+                    success: false,
+                    error: 'Failed to fetch ranked memories.'
+                });
+            });
+    },
+
+    // GET /api/memories/evolution-stats - Get memory evolution statistics
+    getEvolutionStats: (req, res) => {
+        const userId = req.user.id;
+
+        memoryService.getEvolutionStats(userId)
+            .then(stats => {
+                return res.json({
+                    success: true,
+                    stats: stats
+                });
+            })
+            .catch(error => {
+                console.error('[MemoryController] Error fetching evolution stats:', error.message);
+                return res.status(500).json({
+                    success: false,
+                    error: 'Failed to fetch evolution statistics.'
+                });
+            });
+    },
+
+    // POST /api/memories/:id/boost - Boost memory importance
+    boostMemory: (req, res) => {
+        const userId = req.user.id;
+        const memoryId = req.params.id;
+
+        memoryService.boostMemory(memoryId, userId)
+            .then(memory => {
+                return res.json({
+                    success: true,
+                    message: 'Memory boosted successfully.',
+                    memory: memory
+                });
+            })
+            .catch(error => {
+                console.error('[MemoryController] Error boosting memory:', error.message);
+                const statusCode = error.message.includes('not found') ? 404 : 500;
+                return res.status(statusCode).json({
+                    success: false,
+                    error: error.message || 'Failed to boost memory.'
+                });
+            });
+    },
+
+    // POST /api/memories/recalculate - Recalculate all memory importance
+    recalculateAllImportance: (req, res) => {
+        const userId = req.user.id;
+
+        memoryService.recalculateAllImportance(userId)
+            .then(result => {
+                return res.json({
+                    success: true,
+                    ...result
+                });
+            })
+            .catch(error => {
+                console.error('[MemoryController] Error recalculating importance:', error.message);
+                return res.status(500).json({
+                    success: false,
+                    error: 'Failed to recalculate memory importance.'
+                });
+            });
     }
 };
 
