@@ -1,5 +1,5 @@
 const memoryService = require('../services/memoryService');
-const memoryExtractionService = require('../services/memoryExtractionService');
+const memoryExtractionService = require('../services/llmMemoryExtractionService');
 
 const memoryController = {
     // GET /api/memories - Get all memories for the authenticated user
@@ -153,7 +153,7 @@ const memoryController = {
     },
 
     // POST /api/memories/extract - Extract memories from a message
-    extractMemories: (req, res) => {
+    extractMemories: async (req, res) => {
         const userId = req.user.id;
         const { message } = req.body;
 
@@ -165,13 +165,13 @@ const memoryController = {
         }
 
         try {
-            // Extract memories with duplicate checking
-            const extractedMemories = memoryExtractionService.extractWithConfidence(
+            // Extract memories with duplicate checking (async LLM extraction)
+            const extractedMemories = await memoryExtractionService.extractWithConfidence(
                 message,
                 userId,
                 (uid, content, category) => {
-                    // This is a synchronous check, but we need async
-                    // For now, we'll extract first and check duplicates later
+                    // Synchronous duplicate check placeholder
+                    // Actual duplicate checking happens after extraction
                     return null;
                 }
             );
@@ -195,29 +195,20 @@ const memoryController = {
                     });
             });
 
-            Promise.all(savePromises)
-                .then(results => {
-                    const savedMemories = results.filter(r => r !== null);
-                    const duplicates = results.length - savedMemories.length;
+            const results = await Promise.all(savePromises);
+            const savedMemories = results.filter(r => r !== null);
+            const duplicates = results.length - savedMemories.length;
 
-                    return res.json({
-                        success: true,
-                        memories: savedMemories,
-                        extracted: extractedMemories.length,
-                        saved: savedMemories.length,
-                        duplicates: duplicates,
-                        message: duplicates > 0
-                            ? `Extracted ${extractedMemories.length} memories, saved ${savedMemories.length} (${duplicates} duplicates skipped).`
-                            : `Successfully extracted and saved ${savedMemories.length} memories.`
-                    });
-                })
-                .catch(error => {
-                    console.error('[MemoryController] Error saving extracted memories:', error.message);
-                    return res.status(500).json({
-                        success: false,
-                        error: 'Failed to save extracted memories.'
-                    });
-                });
+            return res.json({
+                success: true,
+                memories: savedMemories,
+                extracted: extractedMemories.length,
+                saved: savedMemories.length,
+                duplicates: duplicates,
+                message: duplicates > 0
+                    ? `Extracted ${extractedMemories.length} memories, saved ${savedMemories.length} (${duplicates} duplicates skipped).`
+                    : `Successfully extracted and saved ${savedMemories.length} memories.`
+            });
 
         } catch (error) {
             console.error('[MemoryController] Error extracting memories:', error.message);
