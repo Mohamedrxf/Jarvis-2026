@@ -1,15 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useConversations } from '../context/ConversationContext';
 import ConversationSidebar from '../components/ConversationSidebar';
 import {
   Send, Terminal, Settings, Mic, MicOff, Cpu, Layers, Bot, User, RefreshCw,
-  AlertTriangle, Compass, Database, Menu, Loader2
+  AlertTriangle, Compass, Database, Menu, Loader2, Brain
 } from 'lucide-react';
 import '../App.css';
 
 function Chat() {
+  const navigate = useNavigate();
   const { isAuthenticated, loading: authLoading } = useAuth();
   const {
     conversations,
@@ -222,6 +224,27 @@ function Chat() {
             <Compass size={14} style={{ marginRight: '6px' }} />
             {messages.length > 0 ? `${messages.length} messages in thread` : 'New conversation thread'}
           </div>
+          <button
+            className="memory-nav-btn"
+            onClick={() => navigate('/memories')}
+            title="Memory Bank"
+            style={{
+              background: 'rgba(37, 99, 235, 0.1)',
+              border: '1px solid #2563eb',
+              color: '#2563eb',
+              padding: '0.5rem 1rem',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              fontSize: '0.875rem',
+              fontWeight: 500
+            }}
+          >
+            <Brain size={16} />
+            Memory Bank
+          </button>
         </div>
 
         {/* Error display */}
