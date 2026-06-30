@@ -1,5 +1,7 @@
 const db = require('../config/db');
 const memoryEvolutionService = require('./memoryEvolutionService');
+const semanticMemoryService = require('./semanticMemoryService');
+const knowledgeGraphService = require('./knowledgeGraphService');
 
 class MemoryService {
     /**
@@ -11,47 +13,45 @@ class MemoryService {
      * @param {string} source - Source of memory (manual, extracted)
      * @returns {Promise<Object>} Created memory
      */
-    createMemory(userId, category, content, confidence = 1.0, source = 'manual') {
-        return new Promise((resolve, reject) => {
+    async createMemory(userId, category, content, confidence = 1.0, source = 'manual') {
+        try {
             if (!userId || !category || !content) {
-                return reject(new Error('User ID, category, and content are required.'));
+                throw new Error('User ID, category, and content are required.');
             }
 
             const validCategories = ['identity', 'preferences', 'education', 'work', 'goals'];
             if (!validCategories.includes(category)) {
-                return reject(new Error(`Invalid category. Must be one of: ${validCategories.join(', ')}`));
+                throw new Error(`Invalid category. Must be one of: ${validCategories.join(', ')}`);
             }
 
-            const sql = `
-                INSERT INTO memories (user_id, category, content, confidence, source)
-                VALUES (?, ?, ?, ?, ?)
-            `;
+            // Check for duplicates using semantic search
+            const duplicateCheck = await semanticMemoryService.checkForDuplicates(userId, content, category);
+            if (duplicateCheck && duplicateCheck.isDuplicate) {
+                throw new Error('A similar memory already exists.');
+            }
 
-            const self = this;
-            db.run(sql, [userId, category, content.trim(), confidence, source], function (err) {
-                if (err) {
-                    console.error('[MemoryService] Error creating memory:', err.message);
-                    return reject(new Error('Failed to create memory.'));
-                }
+            // Use semantic memory service to create memory with embedding
+            const newMemory = await semanticMemoryService.createMemory(userId, category, content, confidence, source);
 
-                const memoryId = this.lastID;
-                const newMemory = {
-                    id: memoryId,
-                    user_id: userId,
-                    category,
-                    content: content.trim(),
-                    confidence,
-                    source,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                };
+            // Log to history (fire and forget)
+            this.logHistory(userId, newMemory.id, 'created', null, content.trim()).catch(() => { });
 
-                // Log to history (fire and forget)
-                self.logHistory(userId, memoryId, 'created', null, content.trim()).catch(() => { });
+            // Build automatic relationships (fire and forget for non-blocking)
+            knowledgeGraphService.buildAutomaticRelationships(userId, newMemory.id)
+                .then(relationships => {
+                    if (relationships.length > 0) {
+                        console.log(`[MemoryService] Created ${relationships.length} automatic relationships for memory ${newMemory.id}`);
+                    }
+                })
+                .catch(err => {
+                    console.warn('[MemoryService] Could not build automatic relationships:', err.message);
+                });
 
-                resolve(newMemory);
-            });
-        });
+            return newMemory;
+        } catch (error) {
+            console.error('[MemoryService] Error creating memory:', error.message);
+            throw error;
+        }
     }
 
     /**
@@ -112,6 +112,17 @@ class MemoryService {
 
                     // Log to history (fire and forget)
                     self.logHistory(userId, memoryId, 'updated', null, row.content).catch(() => { });
+
+                    // Rebuild automatic relationships (fire and forget for non-blocking)
+                    knowledgeGraphService.buildAutomaticRelationships(userId, memoryId)
+                        .then(relationships => {
+                            if (relationships.length > 0) {
+                                console.log(`[MemoryService] Updated ${relationships.length} relationships for memory ${memoryId}`);
+                            }
+                        })
+                        .catch(err => {
+                            console.warn('[MemoryService] Could not rebuild relationships:', err.message);
+                        });
 
                     resolve(row);
                 });
@@ -198,17 +209,25 @@ class MemoryService {
     }
 
     /**
-     * Search memories by content
+     * Search memories by content (enhanced with semantic search)
      * @param {number} userId - User ID
      * @param {string} query - Search query
      * @returns {Promise<Array>} Matching memories
      */
-    searchMemories(userId, query) {
-        return new Promise((resolve, reject) => {
+    async searchMemories(userId, query) {
+        try {
             if (!userId || !query) {
-                return reject(new Error('User ID and search query are required.'));
+                throw new Error('User ID and search query are required.');
             }
 
+            // Try semantic search first
+            const semanticResults = await semanticMemoryService.semanticSearch(userId, query, 20);
+
+            if (semanticResults.length > 0) {
+                return semanticResults;
+            }
+
+            // Fallback to keyword search
             const searchTerm = `%${query}%`;
             const sql = `
                 SELECT * FROM memories
@@ -216,30 +235,42 @@ class MemoryService {
                 ORDER BY confidence DESC, updated_at DESC
             `;
 
-            db.all(sql, [userId, searchTerm], (err, rows) => {
-                if (err) {
-                    console.error('[MemoryService] Error searching memories:', err.message);
-                    return reject(new Error('Failed to search memories.'));
-                }
-
-                resolve(rows);
+            return new Promise((resolve, reject) => {
+                db.all(sql, [userId, searchTerm], (err, rows) => {
+                    if (err) {
+                        console.error('[MemoryService] Error searching memories:', err.message);
+                        return reject(new Error('Failed to search memories.'));
+                    }
+                    resolve(rows);
+                });
             });
-        });
+        } catch (error) {
+            console.error('[MemoryService] Error searching memories:', error.message);
+            throw error;
+        }
     }
 
     /**
-     * Get memories formatted for AI prompt injection (with ranking)
+     * Get memory context formatted for AI prompt injection (with ranking)
      * @param {number} userId - User ID
+     * @param {string} query - Optional query for semantic relevance
      * @returns {Promise<string>} Formatted memory context with ranked memories
      */
-    async getMemoryContext(userId) {
+    async getMemoryContext(userId, query = null) {
         try {
-            // Use evolution service to get ranked memories
-            const context = await memoryEvolutionService.getRankedMemoryContext(userId);
+            // Use semantic memory service for enhanced context
+            const context = await semanticMemoryService.getSemanticMemoryContext(userId, query);
             return context;
         } catch (error) {
             console.error('[MemoryService] Error getting memory context:', error.message);
-            return '';
+            // Fallback to evolution service
+            try {
+                const context = await memoryEvolutionService.getRankedMemoryContext(userId);
+                return context;
+            } catch (fallbackError) {
+                console.error('[MemoryService] Error getting fallback memory context:', fallbackError.message);
+                return '';
+            }
         }
     }
 
@@ -304,28 +335,39 @@ class MemoryService {
     }
 
     /**
-     * Check for duplicate memories
+     * Check for duplicate memories (enhanced with semantic search)
      * @param {number} userId - User ID
      * @param {string} content - Memory content to check
      * @param {string} category - Memory category
      * @returns {Promise<Object|null>} Duplicate memory if exists
      */
-    findDuplicate(userId, content, category) {
-        return new Promise((resolve, reject) => {
-            const sql = `
-                SELECT * FROM memories
-                WHERE user_id = ? AND category = ? AND LOWER(content) = LOWER(?)
-                LIMIT 1
-            `;
+    async findDuplicate(userId, content, category) {
+        try {
+            // Use semantic duplicate detection
+            const duplicateCheck = await semanticMemoryService.checkForDuplicates(userId, content, category);
+            if (duplicateCheck && duplicateCheck.isDuplicate) {
+                return duplicateCheck.memory;
+            }
+            return null;
+        } catch (error) {
+            console.error('[MemoryService] Error checking duplicate:', error.message);
+            // Fallback to exact match
+            return new Promise((resolve, reject) => {
+                const sql = `
+                    SELECT * FROM memories
+                    WHERE user_id = ? AND category = ? AND LOWER(content) = LOWER(?)
+                    LIMIT 1
+                `;
 
-            db.get(sql, [userId, category, content.trim()], (err, row) => {
-                if (err) {
-                    console.error('[MemoryService] Error checking duplicate:', err.message);
-                    return reject(err);
-                }
-                resolve(row || null);
+                db.get(sql, [userId, category, content.trim()], (err, row) => {
+                    if (err) {
+                        console.error('[MemoryService] Error checking duplicate (fallback):', err.message);
+                        return reject(err);
+                    }
+                    resolve(row || null);
+                });
             });
-        });
+        }
     }
 }
 

@@ -223,6 +223,243 @@ class MemoryApi {
             throw error;
         }
     }
+
+    async semanticSearch(query, limit = 10) {
+        try {
+            const response = await fetch(`${this.baseUrl}/semantic-search`, {
+                method: 'POST',
+                headers: this.getAuthHeader(),
+                body: JSON.stringify({ query, limit })
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to perform semantic search');
+            }
+
+            return data.memories;
+        } catch (error) {
+            console.error('[MemoryApi] Error in semantic search:', error);
+            throw error;
+        }
+    }
+
+    async getClusters() {
+        try {
+            const response = await fetch(`${this.baseUrl}/clusters`, {
+                headers: this.getAuthHeader()
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to fetch clusters');
+            }
+
+            return data.clusters;
+        } catch (error) {
+            console.error('[MemoryApi] Error fetching clusters:', error);
+            throw error;
+        }
+    }
+
+    async getRelatedMemories(memoryId) {
+        try {
+            const response = await fetch(`${this.baseUrl}/${memoryId}/related`, {
+                headers: this.getAuthHeader()
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to fetch related memories');
+            }
+
+            return data.memories;
+        } catch (error) {
+            console.error('[MemoryApi] Error fetching related memories:', error);
+            throw error;
+        }
+    }
+
+    async createRelationship(sourceMemoryId, targetMemoryId, relationshipType, strength = 0.5) {
+        try {
+            const response = await fetch(`${this.baseUrl}/relationships`, {
+                method: 'POST',
+                headers: this.getAuthHeader(),
+                body: JSON.stringify({ sourceMemoryId, targetMemoryId, relationshipType, strength })
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to create relationship');
+            }
+
+            return data.relationship;
+        } catch (error) {
+            console.error('[MemoryApi] Error creating relationship:', error);
+            throw error;
+        }
+    }
+
+    async batchUpdateEmbeddings(batchSize = 50) {
+        try {
+            const response = await fetch(`${this.baseUrl}/batch-update-embeddings`, {
+                method: 'POST',
+                headers: this.getAuthHeader(),
+                body: JSON.stringify({ batchSize })
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to batch update embeddings');
+            }
+
+            return data;
+        } catch (error) {
+            console.error('[MemoryApi] Error batch updating embeddings:', error);
+            throw error;
+        }
+    }
+
+    async getSemanticContext(query, limit = 10) {
+        try {
+            const url = `${this.baseUrl}/semantic-context?query=${encodeURIComponent(query)}&limit=${limit}`;
+            const response = await fetch(url, {
+                headers: this.getAuthHeader()
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to get semantic context');
+            }
+
+            return data.context;
+        } catch (error) {
+            console.error('[MemoryApi] Error getting semantic context:', error);
+            throw error;
+        }
+    }
+
+    async getMemoryRelationships(memoryId, relationType = null, direction = 'both') {
+        try {
+            let url = `${this.baseUrl}/${memoryId}/relationships`;
+            const params = new URLSearchParams();
+            if (relationType) params.append('relationType', relationType);
+            if (direction !== 'both') params.append('direction', direction);
+
+            if (params.toString()) {
+                url += `?${params.toString()}`;
+            }
+
+            const response = await fetch(url, {
+                headers: this.getAuthHeader()
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to fetch relationships');
+            }
+
+            return data.relationships;
+        } catch (error) {
+            console.error('[MemoryApi] Error fetching relationships:', error);
+            throw error;
+        }
+    }
+
+    async createMemoryRelationship(memoryId, targetMemoryId, relationType, confidence = 0.5) {
+        try {
+            const response = await fetch(`${this.baseUrl}/${memoryId}/relationships`, {
+                method: 'POST',
+                headers: this.getAuthHeader(),
+                body: JSON.stringify({ targetMemoryId, relationType, confidence })
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to create relationship');
+            }
+
+            return data.relationship;
+        } catch (error) {
+            console.error('[MemoryApi] Error creating relationship:', error);
+            throw error;
+        }
+    }
+
+    async deleteMemoryRelationship(relationshipId) {
+        try {
+            const response = await fetch(`${this.baseUrl}/relationships/${relationshipId}`, {
+                method: 'DELETE',
+                headers: this.getAuthHeader()
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to delete relationship');
+            }
+
+            return true;
+        } catch (error) {
+            console.error('[MemoryApi] Error deleting relationship:', error);
+            throw error;
+        }
+    }
+
+    async getRelationshipTypes() {
+        try {
+            const response = await fetch(`${this.baseUrl}/relationships/types`, {
+                headers: this.getAuthHeader()
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to fetch relationship types');
+            }
+
+            return data.types;
+        } catch (error) {
+            console.error('[MemoryApi] Error fetching relationship types:', error);
+            throw error;
+        }
+    }
+
+    async getGraphStats() {
+        try {
+            const response = await fetch(`${this.baseUrl}/graph-stats`, {
+                headers: this.getAuthHeader()
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to fetch graph stats');
+            }
+
+            return data.stats;
+        } catch (error) {
+            console.error('[MemoryApi] Error fetching graph stats:', error);
+            throw error;
+        }
+    }
+
+    async buildMemoryRelationships(memoryId, threshold = null) {
+        try {
+            const response = await fetch(`${this.baseUrl}/${memoryId}/build-relationships`, {
+                method: 'POST',
+                headers: this.getAuthHeader(),
+                body: JSON.stringify({ threshold })
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to build relationships');
+            }
+
+            return data;
+        } catch (error) {
+            console.error('[MemoryApi] Error building relationships:', error);
+            throw error;
+        }
+    }
 }
 
 export default new MemoryApi();

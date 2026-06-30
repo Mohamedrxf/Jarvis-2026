@@ -8,6 +8,7 @@ export const MemoryProvider = ({ children }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [stats, setStats] = useState(null);
+    const [clusters, setClusters] = useState([]);
 
     // Fetch all memories
     const fetchMemories = useCallback(async (category = null) => {
@@ -181,6 +182,145 @@ export const MemoryProvider = ({ children }) => {
         }
     }, [fetchMemories]);
 
+    // Semantic search
+    const semanticSearch = useCallback(async (query, limit = 10) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const results = await memoryApi.semanticSearch(query, limit);
+            setMemories(results);
+            return results;
+        } catch (err) {
+            setError(err.message);
+            console.error('Failed to perform semantic search:', err);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    // Get clusters
+    const getClusters = useCallback(async () => {
+        try {
+            const clustersData = await memoryApi.getClusters();
+            setClusters(clustersData);
+            return clustersData;
+        } catch (err) {
+            console.error('Failed to fetch clusters:', err);
+            throw err;
+        }
+    }, []);
+
+    // Get related memories
+    const getRelatedMemories = useCallback(async (memoryId) => {
+        try {
+            const related = await memoryApi.getRelatedMemories(memoryId);
+            return related;
+        } catch (err) {
+            console.error('Failed to fetch related memories:', err);
+            throw err;
+        }
+    }, []);
+
+    // Create relationship
+    const createRelationship = useCallback(async (sourceMemoryId, targetMemoryId, relationshipType, strength = 0.5) => {
+        try {
+            const relationship = await memoryApi.createRelationship(sourceMemoryId, targetMemoryId, relationshipType, strength);
+            return relationship;
+        } catch (err) {
+            console.error('Failed to create relationship:', err);
+            throw err;
+        }
+    }, []);
+
+    // Batch update embeddings
+    const batchUpdateEmbeddings = useCallback(async (batchSize = 50) => {
+        try {
+            const result = await memoryApi.batchUpdateEmbeddings(batchSize);
+            return result;
+        } catch (err) {
+            console.error('Failed to batch update embeddings:', err);
+            throw err;
+        }
+    }, []);
+
+    // Get semantic context
+    const getSemanticContext = useCallback(async (query, limit = 10) => {
+        try {
+            const context = await memoryApi.getSemanticContext(query, limit);
+            return context;
+        } catch (err) {
+            console.error('Failed to get semantic context:', err);
+            throw err;
+        }
+    }, []);
+
+    // Get memory relationships
+    const getMemoryRelationships = useCallback(async (memoryId, relationType = null, direction = 'both') => {
+        try {
+            const relationships = await memoryApi.getMemoryRelationships(memoryId, relationType, direction);
+            return relationships;
+        } catch (err) {
+            console.error('Failed to fetch memory relationships:', err);
+            throw err;
+        }
+    }, []);
+
+    // Create memory relationship
+    const createMemoryRelationship = useCallback(async (memoryId, targetMemoryId, relationType, confidence = 0.5) => {
+        try {
+            const relationship = await memoryApi.createMemoryRelationship(memoryId, targetMemoryId, relationType, confidence);
+            return relationship;
+        } catch (err) {
+            console.error('Failed to create memory relationship:', err);
+            throw err;
+        }
+    }, []);
+
+    // Delete memory relationship
+    const deleteMemoryRelationship = useCallback(async (relationshipId) => {
+        try {
+            await memoryApi.deleteMemoryRelationship(relationshipId);
+            return true;
+        } catch (err) {
+            console.error('Failed to delete memory relationship:', err);
+            throw err;
+        }
+    }, []);
+
+    // Get relationship types
+    const getRelationshipTypes = useCallback(async () => {
+        try {
+            const types = await memoryApi.getRelationshipTypes();
+            return types;
+        } catch (err) {
+            console.error('Failed to fetch relationship types:', err);
+            throw err;
+        }
+    }, []);
+
+    // Get graph stats
+    const getGraphStats = useCallback(async () => {
+        try {
+            const stats = await memoryApi.getGraphStats();
+            return stats;
+        } catch (err) {
+            console.error('Failed to fetch graph stats:', err);
+            throw err;
+        }
+    }, []);
+
+    // Build memory relationships
+    const buildMemoryRelationships = useCallback(async (memoryId, threshold = null) => {
+        try {
+            const result = await memoryApi.buildMemoryRelationships(memoryId, threshold);
+            return result;
+        } catch (err) {
+            console.error('Failed to build memory relationships:', err);
+            throw err;
+        }
+    }, []);
+
     // Load memories on mount
     useEffect(() => {
         fetchMemories();
@@ -192,6 +332,7 @@ export const MemoryProvider = ({ children }) => {
         loading,
         error,
         stats,
+        clusters,
         fetchMemories,
         createMemory,
         updateMemory,
@@ -203,6 +344,18 @@ export const MemoryProvider = ({ children }) => {
         fetchEvolutionStats,
         boostMemory,
         recalculateAllImportance,
+        semanticSearch,
+        getClusters,
+        getRelatedMemories,
+        createRelationship,
+        batchUpdateEmbeddings,
+        getSemanticContext,
+        getMemoryRelationships,
+        createMemoryRelationship,
+        deleteMemoryRelationship,
+        getRelationshipTypes,
+        getGraphStats,
+        buildMemoryRelationships,
         clearError: () => setError(null)
     };
 

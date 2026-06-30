@@ -1,5 +1,7 @@
 const memoryService = require('../services/memoryService');
+const semanticMemoryService = require('../services/semanticMemoryService');
 const memoryExtractionService = require('../services/llmMemoryExtractionService');
+const knowledgeGraphService = require('../services/knowledgeGraphService');
 
 const memoryController = {
     // GET /api/memories - Get all memories for the authenticated user
@@ -346,6 +348,288 @@ const memoryController = {
                     error: 'Failed to recalculate memory importance.'
                 });
             });
+    },
+
+    // POST /api/memories/semantic-search - Semantic search for memories
+    semanticSearch: async (req, res) => {
+        const userId = req.user.id;
+        const { query, limit } = req.body;
+
+        if (!query) {
+            return res.status(400).json({
+                success: false,
+                error: 'Search query is required.'
+            });
+        }
+
+        try {
+            const memories = await semanticMemoryService.semanticSearch(userId, query, limit || 10);
+            return res.json({
+                success: true,
+                memories: memories,
+                count: memories.length
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error in semantic search:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to perform semantic search.'
+            });
+        }
+    },
+
+    // GET /api/memories/clusters - Get memory clusters
+    getClusters: async (req, res) => {
+        const userId = req.user.id;
+
+        try {
+            const clusters = await semanticMemoryService.getClusters(userId);
+            return res.json({
+                success: true,
+                clusters: clusters
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error fetching clusters:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to fetch memory clusters.'
+            });
+        }
+    },
+
+    // GET /api/memories/:id/related - Get related memories
+    getRelatedMemories: async (req, res) => {
+        const userId = req.user.id;
+        const memoryId = req.params.id;
+
+        try {
+            const relatedMemories = await semanticMemoryService.getRelatedMemories(memoryId, userId);
+            return res.json({
+                success: true,
+                memories: relatedMemories,
+                count: relatedMemories.length
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error fetching related memories:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to fetch related memories.'
+            });
+        }
+    },
+
+    // POST /api/memories/relationships - Create relationship between memories
+    createRelationship: async (req, res) => {
+        const userId = req.user.id;
+        const { sourceMemoryId, targetMemoryId, relationshipType, strength } = req.body;
+
+        if (!sourceMemoryId || !targetMemoryId || !relationshipType) {
+            return res.status(400).json({
+                success: false,
+                error: 'Source memory ID, target memory ID, and relationship type are required.'
+            });
+        }
+
+        try {
+            const relationship = await semanticMemoryService.createRelationship(
+                userId,
+                sourceMemoryId,
+                targetMemoryId,
+                relationshipType,
+                strength || 0.5
+            );
+            return res.status(201).json({
+                success: true,
+                relationship: relationship
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error creating relationship:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to create relationship.'
+            });
+        }
+    },
+
+    // POST /api/memories/batch-update-embeddings - Batch update embeddings
+    batchUpdateEmbeddings: async (req, res) => {
+        const userId = req.user.id;
+        const { batchSize } = req.body;
+
+        try {
+            const result = await semanticMemoryService.batchUpdateEmbeddings(userId, batchSize || 50);
+            return res.json({
+                success: true,
+                ...result
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error batch updating embeddings:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to batch update embeddings.'
+            });
+        }
+    },
+
+    // GET /api/memories/semantic-context - Get semantic memory context for AI
+    getSemanticContext: async (req, res) => {
+        const userId = req.user.id;
+        const { query, limit } = req.query;
+
+        try {
+            const context = await semanticMemoryService.getSemanticMemoryContext(userId, query, limit || 10);
+            return res.json({
+                success: true,
+                context: context
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error getting semantic context:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to get semantic memory context.'
+            });
+        }
+    },
+
+    // GET /api/memories/:id/relationships - Get all relationships for a memory
+    getMemoryRelationships: async (req, res) => {
+        const userId = req.user.id;
+        const memoryId = req.params.id;
+        const { relationType, direction } = req.query;
+
+        try {
+            const relationships = await knowledgeGraphService.getRelationships(
+                memoryId,
+                direction || 'both',
+                relationType || null
+            );
+            return res.json({
+                success: true,
+                relationships: relationships,
+                count: relationships.length
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error fetching relationships:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to fetch memory relationships.'
+            });
+        }
+    },
+
+    // POST /api/memories/:id/relationships - Create a new relationship
+    createMemoryRelationship: async (req, res) => {
+        const userId = req.user.id;
+        const memoryId = req.params.id;
+        const { targetMemoryId, relationType, confidence } = req.body;
+
+        if (!targetMemoryId || !relationType) {
+            return res.status(400).json({
+                success: false,
+                error: 'Target memory ID and relationship type are required.'
+            });
+        }
+
+        try {
+            const relationship = await knowledgeGraphService.createEdge(
+                memoryId,
+                targetMemoryId,
+                relationType,
+                confidence || 0.5
+            );
+            return res.status(201).json({
+                success: true,
+                relationship: relationship
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error creating relationship:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: error.message || 'Failed to create relationship.'
+            });
+        }
+    },
+
+    // DELETE /api/memories/relationships/:id - Delete a relationship
+    deleteMemoryRelationship: async (req, res) => {
+        const relationshipId = req.params.id;
+
+        try {
+            await knowledgeGraphService.deleteEdge(relationshipId);
+            return res.json({
+                success: true,
+                message: 'Relationship deleted successfully.'
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error deleting relationship:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: error.message || 'Failed to delete relationship.'
+            });
+        }
+    },
+
+    // GET /api/memories/relationships/types - Get all supported relationship types
+    getRelationshipTypes: (req, res) => {
+        try {
+            const relationTypes = knowledgeGraphService.getRelationTypes();
+            return res.json({
+                success: true,
+                types: relationTypes
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error fetching relationship types:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to fetch relationship types.'
+            });
+        }
+    },
+
+    // GET /api/memories/graph-stats - Get knowledge graph statistics
+    getGraphStats: async (req, res) => {
+        const userId = req.user.id;
+
+        try {
+            const stats = await knowledgeGraphService.getGraphStats(userId);
+            return res.json({
+                success: true,
+                stats: stats
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error fetching graph stats:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to fetch graph statistics.'
+            });
+        }
+    },
+
+    // POST /api/memories/:id/build-relationships - Manually trigger relationship building
+    buildMemoryRelationships: async (req, res) => {
+        const userId = req.user.id;
+        const memoryId = req.params.id;
+        const { threshold } = req.body;
+
+        try {
+            const relationships = await knowledgeGraphService.buildAutomaticRelationships(
+                userId,
+                memoryId,
+                threshold
+            );
+            return res.json({
+                success: true,
+                relationships: relationships,
+                count: relationships.length,
+                message: `Built ${relationships.length} relationships.`
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error building relationships:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to build relationships.'
+            });
+        }
     }
 };
 
