@@ -75,4 +75,28 @@ router.get('/graph-stats', memoryController.getGraphStats);
 // POST /api/memories/:id/build-relationships - Manually trigger relationship building
 router.post('/:id/build-relationships', memoryController.buildMemoryRelationships);
 
+// GET /api/memories/:id/connected - Get connected memories with reasoning
+router.get('/:id/connected', memoryController.getConnectedMemories);
+
+// GET /api/memories/:id/context-summary - Get context summary for a memory
+router.get('/:id/context-summary', memoryController.getContextSummary);
+
+// GET /api/memories/:id/reasoning-context - Get full reasoning context for a memory
+router.get('/:id/reasoning-context', memoryController.getReasoningContext);
+
+// GET /api/memories/:id/context-preview - Get context preview for UI
+router.get('/:id/context-preview', memoryController.getContextPreview);
+
+// GET /api/memories/enriched-context - Get enriched prompt context
+router.get('/enriched-context', memoryController.getEnrichedContext);
+
+// GET /api/memories/intelligence-report - Get memory intelligence report (Phase 4.5C)
+router.get('/intelligence-report', memoryController.getIntelligenceReport);
+
+// GET /api/memories/conflicts - Detect memory conflicts (Phase 4.5C)
+router.get('/conflicts', memoryController.getConflicts);
+
+// GET /api/memories/duplicates - Detect duplicate clusters (Phase 4.5C)
+router.get('/duplicates', memoryController.getDuplicates);
+
 module.exports = router;
