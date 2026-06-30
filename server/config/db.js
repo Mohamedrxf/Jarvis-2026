@@ -217,6 +217,41 @@ function initializeDatabase() {
     }
   });
 
+  // File Intelligence System - Phase 5
+  const userFilesSql = `
+    CREATE TABLE IF NOT EXISTS user_files (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      filename TEXT NOT NULL,
+      original_name TEXT NOT NULL,
+      file_type TEXT NOT NULL,
+      file_size INTEGER NOT NULL,
+      file_path TEXT NOT NULL,
+      extracted_content TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `;
+
+  db.run(userFilesSql, (err) => {
+    if (err) {
+      console.error('[DB] Error creating user_files table:', err.message);
+    } else {
+      console.log('[DB] User files table ready.');
+    }
+  });
+
+  const userFilesIndexSql = `
+    CREATE INDEX IF NOT EXISTS idx_user_files_user_id ON user_files(user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_files_created_at ON user_files(created_at);
+  `;
+
+  db.run(userFilesIndexSql, (err) => {
+    if (err) {
+      console.error('[DB] Error creating user_files indexes:', err.message);
+    }
+  });
+
   // Knowledge Graph Foundation - Phase 4.5A
   const knowledgeEdgesSql = `
     CREATE TABLE IF NOT EXISTS knowledge_edges (

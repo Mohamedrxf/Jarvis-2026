@@ -31,6 +31,10 @@ app.use('/api/conversations', conversationRoutes);
 const memoryRoutes = require('./routes/memories');
 app.use('/api/memories', memoryRoutes);
 
+// File routes
+const fileRoutes = require('./routes/files');
+app.use('/api/files', fileRoutes);
+
 // Routes
 /**
  * @route POST /api/chat
