@@ -460,6 +460,158 @@ class MemoryApi {
             throw error;
         }
     }
+
+    async getConnectedMemories(memoryId, maxDepth = 2) {
+        try {
+            const url = `${this.baseUrl}/${memoryId}/connected?maxDepth=${maxDepth}`;
+            const response = await fetch(url, {
+                headers: this.getAuthHeader()
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to fetch connected memories');
+            }
+
+            return data;
+        } catch (error) {
+            console.error('[MemoryApi] Error fetching connected memories:', error);
+            throw error;
+        }
+    }
+
+    async getContextSummary(memoryId, maxDepth = 2, maxMemories = 10) {
+        try {
+            const url = `${this.baseUrl}/${memoryId}/context-summary?maxDepth=${maxDepth}&maxMemories=${maxMemories}`;
+            const response = await fetch(url, {
+                headers: this.getAuthHeader()
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to get context summary');
+            }
+
+            return data.summary;
+        } catch (error) {
+            console.error('[MemoryApi] Error getting context summary:', error);
+            throw error;
+        }
+    }
+
+    async getReasoningContext(memoryId, maxDepth = 2, maxMemories = 10) {
+        try {
+            const url = `${this.baseUrl}/${memoryId}/reasoning-context?maxDepth=${maxDepth}&maxMemories=${maxMemories}`;
+            const response = await fetch(url, {
+                headers: this.getAuthHeader()
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to get reasoning context');
+            }
+
+            return data.context;
+        } catch (error) {
+            console.error('[MemoryApi] Error getting reasoning context:', error);
+            throw error;
+        }
+    }
+
+    async getContextPreview(memoryId) {
+        try {
+            const response = await fetch(`${this.baseUrl}/${memoryId}/context-preview`, {
+                headers: this.getAuthHeader()
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to get context preview');
+            }
+
+            return data.preview;
+        } catch (error) {
+            console.error('[MemoryApi] Error getting context preview:', error);
+            throw error;
+        }
+    }
+
+    async getEnrichedContext(query = null, memoryId = null) {
+        try {
+            const params = new URLSearchParams();
+            if (query) params.append('query', query);
+            if (memoryId) params.append('memoryId', memoryId);
+
+            const url = `${this.baseUrl}/enriched-context?${params.toString()}`;
+            const response = await fetch(url, {
+                headers: this.getAuthHeader()
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to get enriched context');
+            }
+
+            return data.context;
+        } catch (error) {
+            console.error('[MemoryApi] Error getting enriched context:', error);
+            throw error;
+        }
+    }
+
+    async getIntelligenceReport() {
+        try {
+            const response = await fetch(`${this.baseUrl}/intelligence-report`, {
+                headers: this.getAuthHeader()
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to get intelligence report');
+            }
+
+            return data.report;
+        } catch (error) {
+            console.error('[MemoryApi] Error getting intelligence report:', error);
+            throw error;
+        }
+    }
+
+    async getConflicts() {
+        try {
+            const response = await fetch(`${this.baseUrl}/conflicts`, {
+                headers: this.getAuthHeader()
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to get conflicts');
+            }
+
+            return data.conflicts;
+        } catch (error) {
+            console.error('[MemoryApi] Error getting conflicts:', error);
+            throw error;
+        }
+    }
+
+    async getDuplicates() {
+        try {
+            const response = await fetch(`${this.baseUrl}/duplicates`, {
+                headers: this.getAuthHeader()
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to get duplicates');
+            }
+
+            return data.duplicates;
+        } catch (error) {
+            console.error('[MemoryApi] Error getting duplicates:', error);
+            throw error;
+        }
+    }
 }
 
 export default new MemoryApi();

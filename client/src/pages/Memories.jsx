@@ -27,7 +27,9 @@ function Memories() {
         getRelatedMemories,
         getMemoryRelationships,
         getRelationshipTypes,
-        getGraphStats
+        getGraphStats,
+        getContextPreview,
+        getConnectedMemories
     } = useMemory();
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState(null);
@@ -46,6 +48,11 @@ function Memories() {
     const [showGraphStats, setShowGraphStats] = useState(false);
     const [selectedMemoryRelationships, setSelectedMemoryRelationships] = useState([]);
     const [showMemoryRelationships, setShowMemoryRelationships] = useState(false);
+    const [contextPreview, setContextPreview] = useState(null);
+    const [showContextPreview, setShowContextPreview] = useState(false);
+    const [connectedCount, setConnectedCount] = useState(0);
+    const [intelligenceReport, setIntelligenceReport] = useState(null);
+    const [showIntelligenceReport, setShowIntelligenceReport] = useState(false);
 
     useEffect(() => {
         fetchMemories();
@@ -103,11 +110,16 @@ function Memories() {
         setSelectedMemory(memory);
         setShowRelatedPanel(true);
         try {
-            const related = await getRelatedMemories(memory.id);
+            const [related, preview] = await Promise.all([
+                getRelatedMemories(memory.id),
+                getContextPreview(memory.id)
+            ]);
             setRelatedMemories(related);
+            setContextPreview(preview);
         } catch (err) {
-            console.error('Failed to fetch related memories:', err);
+            console.error('Failed to fetch memory details:', err);
             setRelatedMemories([]);
+            setContextPreview(null);
         }
     };
 
@@ -170,6 +182,20 @@ function Memories() {
         }
     };
 
+    const handleToggleIntelligenceReport = async () => {
+        if (!showIntelligenceReport && !intelligenceReport) {
+            try {
+                const report = await getIntelligenceReport();
+                setIntelligenceReport(report);
+            } catch (err) {
+                console.error('Failed to fetch intelligence report:', err);
+                alert('Failed to load intelligence report');
+                return;
+            }
+        }
+        setShowIntelligenceReport(!showIntelligenceReport);
+    };
+
     return (
         <div className="memories-page">
             <div className="memories-header">
@@ -219,6 +245,12 @@ function Memories() {
                     onClick={() => setShowGraphStats(!showGraphStats)}
                 >
                     {showGraphStats ? 'Hide' : 'Show'} Graph Stats
+                </button>
+                <button
+                    className="btn-intelligence"
+                    onClick={handleToggleIntelligenceReport}
+                >
+                    {showIntelligenceReport ? 'Hide' : 'Show'} Intelligence Report
                 </button>
                 <button
                     className="btn-recalculate"
@@ -284,6 +316,131 @@ function Memories() {
                 </div>
             )}
 
+            {showIntelligenceReport && intelligenceReport && (
+                <div className="intelligence-report-panel">
+                    <h3>Memory Intelligence Report</h3>
+                    <div className="intelligence-summary">
+                        <div className="intelligence-stat">
+                            <span className="intelligence-label">Health Score</span>
+                            <span className={`intelligence-value ${intelligenceReport.summary.healthScore >= 80 ? 'good' : intelligenceReport.summary.healthScore >= 60 ? 'warning' : 'critical'}`}>
+                                {intelligenceReport.summary.healthScore}%
+                            </span>
+                        </div>
+                        <div className="intelligence-stat">
+                            <span className="intelligence-label">Conflicts</span>
+                            <span className={`intelligence-value ${intelligenceReport.summary.totalConflicts > 0 ? 'warning' : 'good'}`}>
+                                {intelligenceReport.summary.totalConflicts}
+                            </span>
+                        </div>
+                        <div className="intelligence-stat">
+                            <span className="intelligence-label">Duplicates</span>
+                            <span className={`intelligence-value ${intelligenceReport.summary.totalDuplicates > 0 ? 'warning' : 'good'}`}>
+                                {intelligenceReport.summary.totalDuplicates}
+                            </span>
+                        </div>
+                        <div className="intelligence-stat">
+                            <span className="intelligence-label">Issues</span>
+                            <span className={`intelligence-value ${intelligenceReport.summary.totalIssues > 0 ? 'info' : 'good'}`}>
+                                {intelligenceReport.summary.totalIssues}
+                            </span>
+                        </div>
+                    </div>
+
+                    {intelligenceReport.conflicts.length > 0 && (
+                        <div className="intelligence-section">
+                            <h4>Conflicts Detected</h4>
+                            <div className="conflicts-list">
+                                {intelligenceReport.conflicts.map((conflict, idx) => (
+                                    <div key={idx} className={`conflict-item severity-${conflict.severity}`}>
+                                        <div className="conflict-header">
+                                            <span className="conflict-category">{conflict.category}</span>
+                                            <span className="conflict-severity">{conflict.severity}</span>
+                                        </div>
+                                        <div className="conflict-memories">
+                                            <div className="conflict-memory">
+                                                <strong>Memory 1:</strong> {conflict.memory1.content}
+                                            </div>
+                                            <div className="conflict-memory">
+                                                <strong>Memory 2:</strong> {conflict.memory2.content}
+                                            </div>
+                                        </div>
+                                        <div className="conflict-resolution">
+                                            <strong>Suggestion:</strong> {conflict.suggestedResolution}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {intelligenceReport.duplicates.length > 0 && (
+                        <div className="intelligence-section">
+                            <h4>Duplicate Clusters</h4>
+                            <div className="duplicates-list">
+                                {intelligenceReport.duplicates.map((duplicate, idx) => (
+                                    <div key={idx} className="duplicate-item">
+                                        <div className="duplicate-header">
+                                            <span className="duplicate-category">{duplicate.category}</span>
+                                            <span className="duplicate-count">{duplicate.duplicates.length + 1} memories</span>
+                                        </div>
+                                        <div className="duplicate-primary">
+                                            <strong>Primary:</strong> {duplicate.primaryMemory.content}
+                                        </div>
+                                        <div className="duplicate-list">
+                                            {duplicate.duplicates.map((dup, dupIdx) => (
+                                                <div key={dupIdx} className="duplicate-entry">
+                                                    - {dup.content} ({(dup.similarity * 100).toFixed(0)}% similar)
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {intelligenceReport.consistencyIssues.length > 0 && (
+                        <div className="intelligence-section">
+                            <h4>Consistency Issues</h4>
+                            <div className="issues-list">
+                                {intelligenceReport.consistencyIssues.map((issue, idx) => (
+                                    <div key={idx} className={`issue-item severity-${issue.severity}`}>
+                                        <div className="issue-header">
+                                            <span className="issue-layer">{issue.layer}</span>
+                                            <span className="issue-severity">{issue.severity}</span>
+                                        </div>
+                                        <div className="issue-message">{issue.message}</div>
+                                        <div className="issue-suggestion">{issue.suggestion}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {intelligenceReport.suggestions.length > 0 && (
+                        <div className="intelligence-section">
+                            <h4>Suggestions</h4>
+                            <div className="suggestions-list">
+                                {intelligenceReport.suggestions.map((suggestion, idx) => (
+                                    <div key={idx} className={`suggestion-item priority-${suggestion.priority}`}>
+                                        <div className="suggestion-description">{suggestion.description}</div>
+                                        <div className="suggestion-details">{suggestion.details}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {intelligenceReport.conflicts.length === 0 &&
+                        intelligenceReport.duplicates.length === 0 &&
+                        intelligenceReport.consistencyIssues.length === 0 && (
+                            <div className="intelligence-success">
+                                ✓ No issues detected. Your memory system is healthy!
+                            </div>
+                        )}
+                </div>
+            )}
+
             {showRelatedPanel && selectedMemory && (
                 <div className="related-panel">
                     <div className="related-panel-header">
@@ -295,6 +452,19 @@ function Memories() {
                             <h4>Selected Memory:</h4>
                             <p>{selectedMemory.content}</p>
                         </div>
+                        {contextPreview && (
+                            <div className="context-preview-section">
+                                <div className="context-preview-header">
+                                    <h4>Context Preview</h4>
+                                    <span className="connected-count">
+                                        {contextPreview.connected_count} connected
+                                    </span>
+                                </div>
+                                <div className="context-preview-content">
+                                    <pre>{contextPreview.preview}</pre>
+                                </div>
+                            </div>
+                        )}
                         {relatedMemories.length > 0 ? (
                             <div className="related-memories-list">
                                 <h4>Related:</h4>

@@ -2,6 +2,8 @@ const db = require('../config/db');
 const memoryEvolutionService = require('./memoryEvolutionService');
 const semanticMemoryService = require('./semanticMemoryService');
 const knowledgeGraphService = require('./knowledgeGraphService');
+const knowledgeReasoningService = require('./knowledgeReasoningService');
+const memoryIntelligenceService = require('./memoryIntelligenceService');
 
 class MemoryService {
     /**
@@ -275,6 +277,23 @@ class MemoryService {
     }
 
     /**
+     * Get enriched prompt context with reasoning (Phase 4.5B)
+     * @param {number} userId - User ID
+     * @param {string} query - Current query
+     * @param {number} memoryId - Optional specific memory ID
+     * @returns {Promise<string>} Enriched context for prompt injection
+     */
+    async getEnrichedPromptContext(userId, query = null, memoryId = null) {
+        try {
+            return await knowledgeReasoningService.getEnrichedPromptContext(userId, query, memoryId);
+        } catch (error) {
+            console.error('[MemoryService] Error getting enriched prompt context:', error.message);
+            // Fallback to standard memory context
+            return await this.getMemoryContext(userId, query);
+        }
+    }
+
+    /**
      * Update memory usage statistics (called when memory is used in prompt)
      * @param {number} memoryId - Memory ID
      * @param {number} userId - User ID
@@ -367,6 +386,48 @@ class MemoryService {
                     resolve(row || null);
                 });
             });
+        }
+    }
+
+    /**
+     * Get memory intelligence report (Phase 4.5C)
+     * @param {number} userId - User ID
+     * @returns {Promise<Object>} Intelligence report
+     */
+    async getMemoryIntelligenceReport(userId) {
+        try {
+            return await memoryIntelligenceService.getMemoryIntelligenceReport(userId);
+        } catch (error) {
+            console.error('[MemoryService] Error getting intelligence report:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Detect memory conflicts (Phase 4.5C)
+     * @param {number} userId - User ID
+     * @returns {Promise<Array>} List of conflicts
+     */
+    async detectMemoryConflicts(userId) {
+        try {
+            return await memoryIntelligenceService.detectMemoryConflicts(userId);
+        } catch (error) {
+            console.error('[MemoryService] Error detecting conflicts:', error.message);
+            return [];
+        }
+    }
+
+    /**
+     * Detect duplicate clusters (Phase 4.5C)
+     * @param {number} userId - User ID
+     * @returns {Promise<Array>} List of duplicate clusters
+     */
+    async detectDuplicateClusters(userId) {
+        try {
+            return await memoryIntelligenceService.detectDuplicateClusters(userId);
+        } catch (error) {
+            console.error('[MemoryService] Error detecting duplicates:', error.message);
+            return [];
         }
     }
 }

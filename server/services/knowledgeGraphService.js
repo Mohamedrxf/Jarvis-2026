@@ -506,6 +506,212 @@ class KnowledgeGraphService {
     isValidRelationType(relationType) {
         return this.relationTypes.includes(relationType);
     }
+
+    /**
+     * Get connected memories up to a specified depth
+     * @param {number} memoryId - Starting memory ID
+     * @param {number} maxDepth - Maximum traversal depth (default: 2)
+     * @returns {Promise<Object>} Connected memories with traversal info
+     */
+    async getConnectedMemories(memoryId, maxDepth = 2) {
+        try {
+            if (!memoryId) {
+                throw new Error('Memory ID is required.');
+            }
+
+            if (maxDepth < 1 || maxDepth > 3) {
+                throw new Error('Max depth must be between 1 and 3.');
+            }
+
+            // Verify memory exists
+            const memoryExists = await new Promise((resolve, reject) => {
+                const sql = `SELECT id FROM memories WHERE id = ?`;
+                db.get(sql, [memoryId], (err, row) => {
+                    if (err) return reject(err);
+                    resolve(!!row);
+                });
+            });
+
+            if (!memoryExists) {
+                throw new Error('Memory not found.');
+            }
+
+            const visited = new Set();
+            const connected = new Map(); // memoryId -> { memory, depth, path, relationships }
+
+            // BFS traversal
+            const queue = [{ memoryId, depth: 0, path: [memoryId] }];
+            visited.add(memoryId);
+
+            while (queue.length > 0) {
+                const { memoryId: currentId, depth, path } = queue.shift();
+
+                if (depth >= maxDepth) {
+                    continue;
+                }
+
+                // Get all relationships for current memory
+                const relationships = await this.getRelationships(currentId, 'both');
+
+                for (const rel of relationships) {
+                    const relatedId = rel.related_memory.id;
+
+                    if (!visited.has(relatedId)) {
+                        visited.add(relatedId);
+
+                        // Store connected memory info
+                        if (!connected.has(relatedId)) {
+                            connected.set(relatedId, {
+                                memory: rel.related_memory,
+                                depth: depth + 1,
+                                path: [...path, relatedId],
+                                relationships: []
+                            });
+                        }
+
+                        // Add relationship info
+                        connected.get(relatedId).relationships.push({
+                            type: rel.relation_type,
+                            confidence: rel.confidence,
+                            direction: rel.direction,
+                            from: rel.source_memory_id,
+                            to: rel.target_memory_id
+                        });
+
+                        // Add to queue for further traversal
+                        queue.push({
+                            memoryId: relatedId,
+                            depth: depth + 1,
+                            path: [...path, relatedId]
+                        });
+                    }
+                }
+            }
+
+            // Convert map to array and sort by depth then confidence
+            const connectedMemories = Array.from(connected.values())
+                .sort((a, b) => {
+                    if (a.depth !== b.depth) {
+                        return a.depth - b.depth;
+                    }
+                    // Sort by max relationship confidence
+                    const maxConfA = Math.max(...a.relationships.map(r => r.confidence));
+                    const maxConfB = Math.max(...b.relationships.map(r => r.confidence));
+                    return maxConfB - maxConfA;
+                });
+
+            return {
+                connected_memories: connectedMemories,
+                total_count: connectedMemories.length,
+                max_depth_reached: Math.max(...connectedMemories.map(m => m.depth), 0),
+                traversal_stats: {
+                    nodes_visited: visited.size,
+                    edges_traversed: connectedMemories.reduce((sum, m) => sum + m.relationships.length, 0)
+                }
+            };
+        } catch (error) {
+            console.error('[KnowledgeGraph] Error in getConnectedMemories:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Build a concise context summary from connected memories
+     * @param {number} memoryId - Starting memory ID
+     * @param {number} maxDepth - Maximum traversal depth (default: 2)
+     * @param {number} maxMemories - Maximum memories to include in summary (default: 10)
+     * @returns {Promise<Object>} Context summary
+     */
+    async buildContextSummary(memoryId, maxDepth = 2, maxMemories = 10) {
+        try {
+            if (!memoryId) {
+                throw new Error('Memory ID is required.');
+            }
+
+            // Get the starting memory
+            const startMemory = await new Promise((resolve, reject) => {
+                const sql = `SELECT * FROM memories WHERE id = ?`;
+                db.get(sql, [memoryId], (err, row) => {
+                    if (err) return reject(err);
+                    if (!row) return reject(new Error('Memory not found.'));
+                    resolve(row);
+                });
+            });
+
+            // Get connected memories
+            const { connected_memories } = await this.getConnectedMemories(memoryId, maxDepth);
+
+            // Limit memories
+            const limitedMemories = connected_memories.slice(0, maxMemories);
+
+            // Group by relationship type
+            const byRelationType = {};
+            for (const connected of limitedMemories) {
+                for (const rel of connected.relationships) {
+                    if (!byRelationType[rel.type]) {
+                        byRelationType[rel.type] = [];
+                    }
+                    byRelationType[rel.type].push({
+                        memory: connected.memory,
+                        confidence: rel.confidence,
+                        direction: rel.direction
+                    });
+                }
+            }
+
+            // Build summary sections
+            const summary = {
+                memory_id: memoryId,
+                memory_content: startMemory.content,
+                memory_category: startMemory.category,
+                connected_count: connected_memories.length,
+                included_count: limitedMemories.length,
+                sections: []
+            };
+
+            // Add section for each relationship type
+            for (const [relationType, memories] of Object.entries(byRelationType)) {
+                if (memories.length === 0) continue;
+
+                const section = {
+                    relation_type: relationType,
+                    count: memories.length,
+                    memories: memories
+                        .sort((a, b) => b.confidence - a.confidence)
+                        .slice(0, 5)
+                        .map(m => ({
+                            id: m.memory.id,
+                            category: m.memory.category,
+                            content: m.memory.content,
+                            confidence: m.confidence,
+                            direction: m.direction
+                        }))
+                };
+
+                summary.sections.push(section);
+            }
+
+            // Generate concise text summary
+            let textSummary = `Memory: "${startMemory.content}"\n`;
+            textSummary += `Category: ${startMemory.category}\n\n`;
+            textSummary += `Connected Memories (${limitedMemories.length} of ${connected_memories.length}):\n`;
+
+            for (const section of summary.sections) {
+                textSummary += `\n[${section.relation_type.toUpperCase()}]\n`;
+                for (const mem of section.memories) {
+                    const direction = mem.direction === 'outgoing' ? '→' : '←';
+                    textSummary += `${direction} ${mem.content} (${(mem.confidence * 100).toFixed(0)}%)\n`;
+                }
+            }
+
+            summary.text_summary = textSummary;
+
+            return summary;
+        } catch (error) {
+            console.error('[KnowledgeGraph] Error in buildContextSummary:', error.message);
+            throw error;
+        }
+    }
 }
 
 module.exports = new KnowledgeGraphService();

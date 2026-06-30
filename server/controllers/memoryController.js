@@ -630,6 +630,176 @@ const memoryController = {
                 error: 'Failed to build relationships.'
             });
         }
+    },
+
+    // GET /api/memories/:id/connected - Get connected memories with reasoning
+    getConnectedMemories: async (req, res) => {
+        const userId = req.user.id;
+        const memoryId = req.params.id;
+        const { maxDepth } = req.query;
+
+        try {
+            const depth = maxDepth ? parseInt(maxDepth) : 2;
+            const connected = await knowledgeGraphService.getConnectedMemories(memoryId, depth);
+            return res.json({
+                success: true,
+                ...connected
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error fetching connected memories:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to fetch connected memories.'
+            });
+        }
+    },
+
+    // GET /api/memories/:id/context-summary - Get context summary for a memory
+    getContextSummary: async (req, res) => {
+        const userId = req.user.id;
+        const memoryId = req.params.id;
+        const { maxDepth, maxMemories } = req.query;
+
+        try {
+            const depth = maxDepth ? parseInt(maxDepth) : 2;
+            const memories = maxMemories ? parseInt(maxMemories) : 10;
+            const summary = await knowledgeGraphService.buildContextSummary(memoryId, depth, memories);
+            return res.json({
+                success: true,
+                summary: summary
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error building context summary:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to build context summary.'
+            });
+        }
+    },
+
+    // GET /api/memories/:id/reasoning-context - Get full reasoning context for a memory
+    getReasoningContext: async (req, res) => {
+        const userId = req.user.id;
+        const memoryId = req.params.id;
+        const { maxDepth, maxMemories } = req.query;
+
+        try {
+            const depth = maxDepth ? parseInt(maxDepth) : 2;
+            const memories = maxMemories ? parseInt(maxMemories) : 10;
+            const context = await knowledgeReasoningService.getReasoningContext(memoryId, {
+                maxDepth: depth,
+                maxMemories: memories
+            });
+            return res.json({
+                success: true,
+                context: context
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error getting reasoning context:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to get reasoning context.'
+            });
+        }
+    },
+
+    // GET /api/memories/:id/context-preview - Get context preview for UI
+    getContextPreview: async (req, res) => {
+        const userId = req.user.id;
+        const memoryId = req.params.id;
+
+        try {
+            const preview = await knowledgeReasoningService.getContextPreview(memoryId);
+            return res.json({
+                success: true,
+                preview: preview
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error getting context preview:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to get context preview.'
+            });
+        }
+    },
+
+    // GET /api/memories/enriched-context - Get enriched prompt context
+    getEnrichedContext: async (req, res) => {
+        const userId = req.user.id;
+        const { query, memoryId } = req.query;
+
+        try {
+            const context = await memoryService.getEnrichedPromptContext(userId, query, memoryId ? parseInt(memoryId) : null);
+            return res.json({
+                success: true,
+                context: context
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error getting enriched context:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to get enriched context.'
+            });
+        }
+    },
+
+    // GET /api/memories/intelligence-report - Get memory intelligence report (Phase 4.5C)
+    getIntelligenceReport: async (req, res) => {
+        const userId = req.user.id;
+
+        try {
+            const report = await memoryService.getMemoryIntelligenceReport(userId);
+            return res.json({
+                success: true,
+                report: report
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error getting intelligence report:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to get intelligence report.'
+            });
+        }
+    },
+
+    // GET /api/memories/conflicts - Detect memory conflicts (Phase 4.5C)
+    getConflicts: async (req, res) => {
+        const userId = req.user.id;
+
+        try {
+            const conflicts = await memoryService.detectMemoryConflicts(userId);
+            return res.json({
+                success: true,
+                conflicts: conflicts,
+                count: conflicts.length
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error detecting conflicts:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to detect conflicts.'
+            });
+        }
+    },
+
+    // GET /api/memories/duplicates - Detect duplicate clusters (Phase 4.5C)
+    getDuplicates: async (req, res) => {
+        const userId = req.user.id;
+
+        try {
+            const duplicates = await memoryService.detectDuplicateClusters(userId);
+            return res.json({
+                success: true,
+                duplicates: duplicates,
+                count: duplicates.length
+            });
+        } catch (error) {
+            console.error('[MemoryController] Error detecting duplicates:', error.message);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to detect duplicates.'
+            });
+        }
     }
 };
 

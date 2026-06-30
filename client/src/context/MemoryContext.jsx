@@ -321,6 +321,94 @@ export const MemoryProvider = ({ children }) => {
         }
     }, []);
 
+    // Get connected memories
+    const getConnectedMemories = useCallback(async (memoryId, maxDepth = 2) => {
+        try {
+            const connected = await memoryApi.getConnectedMemories(memoryId, maxDepth);
+            return connected;
+        } catch (err) {
+            console.error('Failed to fetch connected memories:', err);
+            throw err;
+        }
+    }, []);
+
+    // Get context summary
+    const getContextSummary = useCallback(async (memoryId, maxDepth = 2, maxMemories = 10) => {
+        try {
+            const summary = await memoryApi.getContextSummary(memoryId, maxDepth, maxMemories);
+            return summary;
+        } catch (err) {
+            console.error('Failed to get context summary:', err);
+            throw err;
+        }
+    }, []);
+
+    // Get reasoning context
+    const getReasoningContext = useCallback(async (memoryId, maxDepth = 2, maxMemories = 10) => {
+        try {
+            const context = await memoryApi.getReasoningContext(memoryId, maxDepth, maxMemories);
+            return context;
+        } catch (err) {
+            console.error('Failed to get reasoning context:', err);
+            throw err;
+        }
+    }, []);
+
+    // Get context preview
+    const getContextPreview = useCallback(async (memoryId) => {
+        try {
+            const preview = await memoryApi.getContextPreview(memoryId);
+            return preview;
+        } catch (err) {
+            console.error('Failed to get context preview:', err);
+            throw err;
+        }
+    }, []);
+
+    // Get enriched context
+    const getEnrichedContext = useCallback(async (query = null, memoryId = null) => {
+        try {
+            const context = await memoryApi.getEnrichedContext(query, memoryId);
+            return context;
+        } catch (err) {
+            console.error('Failed to get enriched context:', err);
+            throw err;
+        }
+    }, []);
+
+    // Get intelligence report (Phase 4.5C)
+    const getIntelligenceReport = useCallback(async () => {
+        try {
+            const report = await memoryApi.getIntelligenceReport();
+            return report;
+        } catch (err) {
+            console.error('Failed to get intelligence report:', err);
+            throw err;
+        }
+    }, []);
+
+    // Get conflicts (Phase 4.5C)
+    const getConflicts = useCallback(async () => {
+        try {
+            const conflicts = await memoryApi.getConflicts();
+            return conflicts;
+        } catch (err) {
+            console.error('Failed to get conflicts:', err);
+            throw err;
+        }
+    }, []);
+
+    // Get duplicates (Phase 4.5C)
+    const getDuplicates = useCallback(async () => {
+        try {
+            const duplicates = await memoryApi.getDuplicates();
+            return duplicates;
+        } catch (err) {
+            console.error('Failed to get duplicates:', err);
+            throw err;
+        }
+    }, []);
+
     // Load memories on mount
     useEffect(() => {
         fetchMemories();
@@ -356,6 +444,14 @@ export const MemoryProvider = ({ children }) => {
         getRelationshipTypes,
         getGraphStats,
         buildMemoryRelationships,
+        getConnectedMemories,
+        getContextSummary,
+        getReasoningContext,
+        getContextPreview,
+        getEnrichedContext,
+        getIntelligenceReport,
+        getConflicts,
+        getDuplicates,
         clearError: () => setError(null)
     };
 

@@ -4,6 +4,8 @@ import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useConversations } from '../context/ConversationContext';
 import ConversationSidebar from '../components/ConversationSidebar';
+import FileUpload from '../components/FileUpload';
+import FileList from '../components/FileList';
 import {
   Send, Terminal, Settings, Mic, MicOff, Cpu, Layers, Bot, User, RefreshCw,
   AlertTriangle, Compass, Database, Menu, Loader2, Brain
@@ -35,6 +37,8 @@ function Chat() {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [llmProvider, setLlmProvider] = useState('mock');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [filePanelOpen, setFilePanelOpen] = useState(false);
+  const [refreshFiles, setRefreshFiles] = useState(0);
   const messagesEndRef = useRef(null);
 
   // Auth check: redirect if not authenticated
@@ -336,6 +340,19 @@ function Chat() {
         {/* Chat Input Area */}
         <div className="chat-input-container">
           <div className="chat-input-bar">
+            {/* File panel toggle */}
+            <button
+              id="btn_file_panel_toggle"
+              className="action-btn"
+              onClick={() => setFilePanelOpen(!filePanelOpen)}
+              title="File Manager"
+              style={{
+                color: filePanelOpen ? '#00f0ff' : 'var(--text-muted)'
+              }}
+            >
+              <Database size={18} />
+            </button>
+
             {/* Voice control placeholder for Phase 3 */}
             <button
               id="btn_voice_toggle"
@@ -368,6 +385,25 @@ function Chat() {
             </button>
           </div>
         </div>
+
+        {/* File Panel */}
+        {filePanelOpen && (
+          <div className="file-panel">
+            <div className="file-panel-header">
+              <h3>File Manager</h3>
+              <button
+                className="close-btn"
+                onClick={() => setFilePanelOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="file-panel-content">
+              <FileUpload onUploadComplete={() => setRefreshFiles(prev => prev + 1)} />
+              <FileList refreshTrigger={refreshFiles} />
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Configuration Modal */}
