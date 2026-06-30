@@ -65,6 +65,18 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     }
 
     const assistantResponse = await aiEngine.generateResponse(enhancedMessages);
+
+    // Lazy update: Track memory usage (non-blocking)
+    if (memoryContext) {
+      const rankedMemories = await memoryService.getRankedMemories(userId, 10);
+      const memoryIds = rankedMemories.map(m => m.id);
+      if (memoryIds.length > 0) {
+        memoryService.batchUpdateMemoryUsage(memoryIds, userId).catch(() => {
+          // Non-critical, don't block response
+        });
+      }
+    }
+
     return res.json({
       success: true,
       response: assistantResponse
