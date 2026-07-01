@@ -36,6 +36,162 @@ app.use('/api/memories', memoryRoutes);
 const fileRoutes = require('./routes/files');
 app.use('/api/files', fileRoutes);
 
+// Tool Decision Layer (Phase 7.2A)
+/**
+ * Lightweight tool decision function using keyword matching
+ * @param {string} message - User message to analyze
+ * @returns {Object} Decision object with useTool flag and tool details
+ */
+function decideTool(message) {
+  const lowerMessage = message.toLowerCase().trim();
+
+  // Weather detection: "weather in <city>" or "what's the weather in <city>"
+  const weatherMatch = lowerMessage.match(/(?:weather|what'?s?\s+(?:the\s+)?weather)\s+(?:in|for)\s+(.+?)(?:\s+today)?$/i);
+  if (weatherMatch) {
+    // Extract city from original message to preserve case
+    const cityMatch = message.match(/(?:weather|what'?s?\s+(?:the\s+)?weather)\s+(?:in|for)\s+(.+?)(?:\s+today)?$/i);
+    return {
+      useTool: true,
+      toolName: 'weather',
+      input: { city: cityMatch[1].trim() }
+    };
+  }
+
+  // Web search detection: "search" or "web search"
+  const webSearchMatch = lowerMessage.match(/(?:web\s+search|search)\s+(?:for\s+)?(.+)/i);
+  if (webSearchMatch) {
+    // Extract query from original message to preserve case
+    const queryMatch = message.match(/(?:web\s+search|search)\s+(?:for\s+)?(.+)/i);
+    return {
+      useTool: true,
+      toolName: 'web_search',
+      input: { query: queryMatch[1].trim() }
+    };
+  }
+
+  // Currency conversion: "convert" or "currency"
+  // Support both 3-letter codes (USD, EUR) and full names (dollars, euros)
+  const currencyMatch = lowerMessage.match(/(?:convert|currency)\s+(\d+(?:\.\d+)?)\s+(?:(\d+(?:\.\d+)?\s+)?([a-z]+)\s+to\s+([a-z]+))/i);
+  if (currencyMatch) {
+    const amount = parseFloat(currencyMatch[1]);
+    const fromCode = normalizeCurrency(currencyMatch[3]);
+    const toCode = normalizeCurrency(currencyMatch[4]);
+    return {
+      useTool: true,
+      toolName: 'currency',
+      input: { amount, from: fromCode, to: toCode }
+    };
+  }
+
+  // Calculator: "calculate" or math expression
+  const calcMatch = lowerMessage.match(/calculate\s+(.+?)(?:\s+please)?$/i);
+  if (calcMatch) {
+    return {
+      useTool: true,
+      toolName: 'calculator',
+      input: { expression: calcMatch[1].trim() }
+    };
+  }
+
+  // Math expression detection (basic patterns)
+  if (lowerMessage.match(/^[\d\s\+\-\*\/\(\)\.]+$/)) {
+    return {
+      useTool: true,
+      toolName: 'calculator',
+      input: { expression: message.trim() }
+    };
+  }
+
+  // UUID generation: "generate uuid"
+  if (lowerMessage.match(/^generate\s+uuid$/i)) {
+    return {
+      useTool: true,
+      toolName: 'uuid',
+      input: {}
+    };
+  }
+
+  // Password generation: "password" or "generate password"
+  const passwordMatch = lowerMessage.match(/(?:generate\s+password|password)(?:\s+(\d+))?/i);
+  if (passwordMatch) {
+    const length = passwordMatch[1] ? parseInt(passwordMatch[1]) : 12;
+    return {
+      useTool: true,
+      toolName: 'password',
+      input: { length: length }
+    };
+  }
+
+  // Date/time detection: "time", "date", "current time", etc.
+  if (lowerMessage.match(/(?:time|date|what\s+time|what\s+date|current\s+time|current\s+date)/i)) {
+    return {
+      useTool: true,
+      toolName: 'datetime',
+      input: {}
+    };
+  }
+
+  // No tool needed
+  return {
+    useTool: false
+  };
+}
+
+/**
+ * Normalize currency names to standard 3-letter codes
+ * @param {string} currency - Currency name or code
+ * @returns {string} 3-letter currency code
+ */
+function normalizeCurrency(currency) {
+  const lower = currency.toLowerCase().trim();
+  const currencyMap = {
+    'dollar': 'USD',
+    'dollars': 'USD',
+    'usd': 'USD',
+    'euro': 'EUR',
+    'euros': 'EUR',
+    'eur': 'EUR',
+    'rupee': 'INR',
+    'rupees': 'INR',
+    'inr': 'INR',
+    'pound': 'GBP',
+    'pounds': 'GBP',
+    'gbp': 'GBP',
+    'yen': 'JPY',
+    'jpy': 'JPY',
+    'yuan': 'CNY',
+    'cny': 'CNY'
+  };
+  return currencyMap[lower] || currency.toUpperCase();
+}
+
+// Unified Tool Execution Pipeline (Phase 7.2C)
+/**
+ * Centralized tool execution pipeline
+ * @param {string} message - User message to process
+ * @returns {Object|null} Standardized tool result or null if no tool needed
+ */
+function executeToolPipeline(message) {
+  // Step 1: Call decideTool (Phase 7.2A - reuse existing logic)
+  const toolDecision = decideTool(message);
+
+  // Step 2: If useTool = false, return null (continue AI pipeline)
+  if (!toolDecision.useTool) {
+    return null;
+  }
+
+  // Step 3: Execute tool via ToolService with extracted parameters
+  const toolResult = toolService.executeTool(toolDecision.toolName, toolDecision.input);
+
+  // Step 4: Return standardized response object
+  return {
+    success: toolResult.success,
+    tool: toolDecision.toolName,
+    input: toolDecision.input,
+    output: toolResult.success ? toolResult.result : toolResult.error
+  };
+}
+
 // Routes
 /**
  * @route POST /api/chat
@@ -61,48 +217,23 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     const lastMessage = messages[messages.length - 1];
     const userContent = lastMessage?.content || '';
 
-    // Tool detection patterns
-    const toolPatterns = {
-      'calculator': /^calculate\s+(.+)$/i,
-      'uuid': /^generate\s+uuid$/i,
-      'password': /^generate\s+password(?:\s+(\d+))?$/i,
-      'datetime': /^(?:what\s+is\s+(?:the\s+)?(?:date|time)|what's\s+(?:the\s+)?(?:date|time)|current\s+(?:date|time)|tell\s+me\s+(?:the\s+)?(?:date|time))/i
-    };
+    // Phase 7.2C: Unified Tool Execution Pipeline
+    const toolPipelineResult = executeToolPipeline(userContent);
 
-    // Check if message matches a tool pattern
-    let toolResult = null;
-    for (const [toolName, pattern] of Object.entries(toolPatterns)) {
-      const match = userContent.match(pattern);
-      if (match) {
-        let toolInput = null;
-
-        if (toolName === 'calculator') {
-          toolInput = { expression: match[1] };
-        } else if (toolName === 'password') {
-          const length = match[1] ? parseInt(match[1]) : 12;
-          toolInput = { length: length };
-        }
-
-        const result = await toolService.executeTool(toolName, toolInput);
-        toolResult = result;
-        break;
-      }
-    }
-
-    // If tool was detected and executed, return result directly
-    if (toolResult) {
-      if (toolResult.success) {
+    // If tool was executed, return result immediately
+    if (toolPipelineResult) {
+      if (toolPipelineResult.success) {
         return res.json({
           success: true,
-          response: toolResult.result.result || toolResult.result,
-          toolUsed: toolResult.toolName
+          response: toolPipelineResult.output,
+          toolUsed: toolPipelineResult.tool
         });
       } else {
         return res.json({
           success: true,
-          response: `Tool execution failed: ${toolResult.error}`,
-          toolUsed: toolResult.toolName,
-          error: toolResult.error
+          response: `Tool execution failed: ${toolPipelineResult.output}`,
+          toolUsed: toolPipelineResult.tool,
+          error: toolPipelineResult.output
         });
       }
     }
