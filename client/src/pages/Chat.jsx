@@ -6,10 +6,12 @@ import { useConversations } from '../context/ConversationContext';
 import ConversationSidebar from '../components/ConversationSidebar';
 import FileUpload from '../components/FileUpload';
 import FileList from '../components/FileList';
+import voiceOutputService from '../services/voiceOutputService';
 import {
   Send, Terminal, Settings, Mic, MicOff, Cpu, Layers, Bot, User, RefreshCw,
   AlertTriangle, Compass, Database, Menu, Loader2, Brain
 } from 'lucide-react';
+import VoiceButton from '../components/VoiceButton';
 import '../App.css';
 
 function Chat() {
@@ -86,6 +88,17 @@ function Chat() {
     const interval = setInterval(checkServerStatus, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  // Track last assistant message and speak it
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.role === 'assistant' && window.speakResponse) {
+        // Speak the response
+        window.speakResponse(lastMessage.content);
+      }
+    }
+  }, [messages.length]);
 
   // Auto-scroll messages to bottom
   useEffect(() => {
@@ -353,15 +366,14 @@ function Chat() {
               <Database size={18} />
             </button>
 
-            {/* Voice control placeholder for Phase 3 */}
-            <button
-              id="btn_voice_toggle"
-              className="action-btn"
-              title="Voice Input (Locked until Phase 3)"
-              disabled
-            >
-              <MicOff size={18} style={{ opacity: 0.5 }} />
-            </button>
+            {/* Voice control - Phase 6 */}
+            <VoiceButton
+              onTranscript={(transcript) => {
+                // Set the transcript as input value and send it
+                setInputValue(transcript);
+                handleSendMessage(transcript);
+              }}
+            />
 
             <input
               id="input_chat_message"

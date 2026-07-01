@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const path = require('path');
 const aiEngine = require('../ai-engine');
 const memoryService = require('./services/memoryService');
+const toolService = require('./services/toolService');
 const authRoutes = require('./routes/auth');
 const authMiddleware = require('./middleware/authMiddleware');
 
@@ -56,6 +57,57 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const memoryContext = await memoryService.getMemoryContext(userId);
 
+    // Get the last user message for tool detection
+    const lastMessage = messages[messages.length - 1];
+    const userContent = lastMessage?.content || '';
+
+    // Tool detection patterns
+    const toolPatterns = {
+      'calculator': /^calculate\s+(.+)$/i,
+      'uuid': /^generate\s+uuid$/i,
+      'password': /^generate\s+password(?:\s+(\d+))?$/i,
+      'datetime': /^(?:what\s+is\s+(?:the\s+)?(?:date|time)|what's\s+(?:the\s+)?(?:date|time)|current\s+(?:date|time)|tell\s+me\s+(?:the\s+)?(?:date|time))/i
+    };
+
+    // Check if message matches a tool pattern
+    let toolResult = null;
+    for (const [toolName, pattern] of Object.entries(toolPatterns)) {
+      const match = userContent.match(pattern);
+      if (match) {
+        let toolInput = null;
+
+        if (toolName === 'calculator') {
+          toolInput = { expression: match[1] };
+        } else if (toolName === 'password') {
+          const length = match[1] ? parseInt(match[1]) : 12;
+          toolInput = { length: length };
+        }
+
+        const result = await toolService.executeTool(toolName, toolInput);
+        toolResult = result;
+        break;
+      }
+    }
+
+    // If tool was detected and executed, return result directly
+    if (toolResult) {
+      if (toolResult.success) {
+        return res.json({
+          success: true,
+          response: toolResult.result.result || toolResult.result,
+          toolUsed: toolResult.toolName
+        });
+      } else {
+        return res.json({
+          success: true,
+          response: `Tool execution failed: ${toolResult.error}`,
+          toolUsed: toolResult.toolName,
+          error: toolResult.error
+        });
+      }
+    }
+
+    // Continue with normal AI pipeline
     let enhancedMessages = messages;
     if (memoryContext) {
       // Add memory context as a system message at the beginning
@@ -69,17 +121,6 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     }
 
     const assistantResponse = await aiEngine.generateResponse(enhancedMessages);
-
-    // Lazy update: Track memory usage (non-blocking)
-    if (memoryContext) {
-      const rankedMemories = await memoryService.getRankedMemories(userId, 10);
-      const memoryIds = rankedMemories.map(m => m.id);
-      if (memoryIds.length > 0) {
-        memoryService.batchUpdateMemoryUsage(memoryIds, userId).catch(() => {
-          // Non-critical, don't block response
-        });
-      }
-    }
 
     return res.json({
       success: true,
