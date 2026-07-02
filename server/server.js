@@ -5,6 +5,8 @@ const path = require('path');
 const aiEngine = require('../ai-engine');
 const memoryService = require('./services/memoryService');
 const toolService = require('./services/toolService');
+const fileService = require('./services/fileService');
+const agentService = require('./services/agentService');
 const authRoutes = require('./routes/auth');
 const authMiddleware = require('./middleware/authMiddleware');
 
@@ -209,54 +211,114 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
   }
 
   try {
-    // Inject memory context into the messages
-    const userId = req.user.id;
-    const memoryContext = await memoryService.getMemoryContext(userId);
-
-    // Get the last user message for tool detection
+    // Get the last user message for routing
     const lastMessage = messages[messages.length - 1];
     const userContent = lastMessage?.content || '';
 
-    // Phase 7.2C: Unified Tool Execution Pipeline
-    const toolPipelineResult = executeToolPipeline(userContent);
+    // Phase 8.0C: Agent-based routing
+    const routeDecision = agentService.analyzeRequest(userContent);
 
-    // If tool was executed, return result immediately
-    if (toolPipelineResult) {
-      if (toolPipelineResult.success) {
+    // Route based on AgentService decision
+    switch (routeDecision.route) {
+      case 'tool': {
+        // Execute existing ToolService pipeline
+        const toolPipelineResult = executeToolPipeline(userContent);
+
+        if (toolPipelineResult) {
+          if (toolPipelineResult.success) {
+            return res.json({
+              success: true,
+              response: toolPipelineResult.output,
+              toolUsed: toolPipelineResult.tool
+            });
+          } else {
+            return res.json({
+              success: true,
+              response: `Tool execution failed: ${toolPipelineResult.output}`,
+              toolUsed: toolPipelineResult.tool,
+              error: toolPipelineResult.output
+            });
+          }
+        }
+        // If no tool matched, fall through to AI
+        break;
+      }
+
+      case 'memory': {
+        // Execute existing MemoryService pipeline
+        const userId = req.user.id;
+        const memoryContext = await memoryService.getMemoryContext(userId);
+
+        // Enhance messages with memory context
+        const enhancedMessages = memoryContext ? [
+          {
+            role: 'system',
+            content: memoryContext
+          },
+          ...messages
+        ] : messages;
+
+        const assistantResponse = await aiEngine.generateResponse(enhancedMessages);
+
         return res.json({
           success: true,
-          response: toolPipelineResult.output,
-          toolUsed: toolPipelineResult.tool
+          response: assistantResponse
         });
-      } else {
+      }
+
+      case 'file': {
+        // Execute existing FileService pipeline
+        const userId = req.user.id;
+        const userFiles = await fileService.getUserFiles(userId);
+
+        // Create context about available files
+        const fileContext = userFiles.length > 0
+          ? `\n\n[System: User has ${userFiles.length} file(s) in their library. You can reference these files in your response.]`
+          : '';
+
+        // Enhance messages with file context
+        const enhancedMessages = [
+          {
+            role: 'system',
+            content: `You are a helpful assistant with access to the user's file system.${fileContext}`
+          },
+          ...messages
+        ];
+
+        const assistantResponse = await aiEngine.generateResponse(enhancedMessages);
+
         return res.json({
           success: true,
-          response: `Tool execution failed: ${toolPipelineResult.output}`,
-          toolUsed: toolPipelineResult.tool,
-          error: toolPipelineResult.output
+          response: assistantResponse
+        });
+      }
+
+      case 'ai':
+      default: {
+        // Continue existing AI pipeline
+        const userId = req.user.id;
+        const memoryContext = await memoryService.getMemoryContext(userId);
+
+        let enhancedMessages = messages;
+        if (memoryContext) {
+          // Add memory context as a system message at the beginning
+          enhancedMessages = [
+            {
+              role: 'system',
+              content: memoryContext
+            },
+            ...messages
+          ];
+        }
+
+        const assistantResponse = await aiEngine.generateResponse(enhancedMessages);
+
+        return res.json({
+          success: true,
+          response: assistantResponse
         });
       }
     }
-
-    // Continue with normal AI pipeline
-    let enhancedMessages = messages;
-    if (memoryContext) {
-      // Add memory context as a system message at the beginning
-      enhancedMessages = [
-        {
-          role: 'system',
-          content: memoryContext
-        },
-        ...messages
-      ];
-    }
-
-    const assistantResponse = await aiEngine.generateResponse(enhancedMessages);
-
-    return res.json({
-      success: true,
-      response: assistantResponse
-    });
   } catch (error) {
     console.error('[Server Error] in /api/chat:', error.message);
     return res.status(500).json({
