@@ -160,6 +160,254 @@ class AgentService {
 
         return { detected: false, reason: "No memory pattern matched" };
     }
+
+    buildContextRequirements(route) {
+        // Default: no context requirements
+        const defaultContext = {
+            memory: false,
+            files: false,
+            tools: false
+        };
+
+        // Route-specific context requirements
+        switch (route) {
+            case "tool":
+                return {
+                    memory: false,
+                    files: false,
+                    tools: true
+                };
+
+            case "memory":
+                return {
+                    memory: true,
+                    files: false,
+                    tools: false
+                };
+
+            case "file":
+                return {
+                    memory: false,
+                    files: true,
+                    tools: false
+                };
+
+            case "ai":
+                return {
+                    memory: true,
+                    files: false,
+                    tools: false
+                };
+
+            default:
+                return defaultContext;
+        }
+    }
+
+    buildContextPlan(route) {
+        // Planning ONLY - no service calls, no execution, no async logic
+        // Returns context plan with specific context sources for each route
+
+        switch (route) {
+            case "tool":
+                return {
+                    memory: [],
+                    files: [],
+                    tools: ["requested_tool"]
+                };
+
+            case "memory":
+                return {
+                    memory: [
+                        "semantic_memory",
+                        "knowledge_graph"
+                    ],
+                    files: [],
+                    tools: []
+                };
+
+            case "file":
+                return {
+                    memory: [],
+                    files: [
+                        "uploaded_files"
+                    ],
+                    tools: []
+                };
+
+            case "ai":
+                return {
+                    memory: [
+                        "semantic_memory"
+                    ],
+                    files: [],
+                    tools: []
+                };
+
+            default:
+                // Unknown route - return empty context plan
+                return {
+                    memory: [],
+                    files: [],
+                    tools: []
+                };
+        }
+    }
+
+    buildResponseStrategy(route) {
+        // Planning ONLY - no service calls, no execution, no async logic
+        // Returns response strategy based on route type
+
+        switch (route) {
+            case "tool":
+                return {
+                    type: "tool_response",
+                    useAI: false,
+                    stream: false
+                };
+
+            case "memory":
+                return {
+                    type: "memory_response",
+                    useAI: true,
+                    stream: false
+                };
+
+            case "file":
+                return {
+                    type: "file_response",
+                    useAI: true,
+                    stream: false
+                };
+
+            case "ai":
+                return {
+                    type: "ai_response",
+                    useAI: true,
+                    stream: true
+                };
+
+            default:
+                // Unknown route
+                return {
+                    type: "unknown",
+                    useAI: false,
+                    stream: false
+                };
+        }
+    }
+
+    getAgentCapabilities() {
+        // Static metadata only - no service calls, no execution, no async logic
+        // Returns comprehensive capability registry for the agent system
+
+        return {
+            routes: [
+                "tool",
+                "memory",
+                "file",
+                "ai"
+            ],
+            tools: [
+                "calculator",
+                "weather",
+                "currency",
+                "uuid",
+                "password",
+                "datetime",
+                "web_search"
+            ],
+            contexts: [
+                "semantic_memory",
+                "knowledge_graph",
+                "uploaded_files"
+            ],
+            responseTypes: [
+                "tool_response",
+                "memory_response",
+                "file_response",
+                "ai_response"
+            ]
+        };
+    }
+
+    validateAgentCapabilities(capabilities) {
+        // Validation only - no service calls, no execution, no async logic
+        // Validates a capabilities object against required structure and values
+        const errors = [];
+
+        // General validation: capabilities must be an object
+        if (!capabilities || typeof capabilities !== 'object' || Array.isArray(capabilities)) {
+            errors.push('Capabilities must be an object');
+            return {
+                valid: false,
+                errors: errors
+            };
+        }
+
+        // Validate routes array
+        if (!Array.isArray(capabilities.routes)) {
+            errors.push('routes must be an array');
+        } else {
+            const requiredRoutes = ['tool', 'memory', 'file', 'ai'];
+            const missingRoutes = requiredRoutes.filter(route => !capabilities.routes.includes(route));
+            if (missingRoutes.length > 0) {
+                errors.push(`Missing required routes: ${missingRoutes.join(', ')}`);
+            }
+        }
+
+        // Validate tools array
+        if (!Array.isArray(capabilities.tools)) {
+            errors.push('tools must be an array');
+        } else {
+            const requiredTools = ['calculator', 'weather', 'currency', 'uuid', 'password', 'datetime', 'web_search'];
+            const missingTools = requiredTools.filter(tool => !capabilities.tools.includes(tool));
+            if (missingTools.length > 0) {
+                errors.push(`Missing required tools: ${missingTools.join(', ')}`);
+            }
+        }
+
+        // Validate contexts array
+        if (!Array.isArray(capabilities.contexts)) {
+            errors.push('contexts must be an array');
+        } else {
+            const requiredContexts = ['semantic_memory', 'knowledge_graph', 'uploaded_files'];
+            const missingContexts = requiredContexts.filter(context => !capabilities.contexts.includes(context));
+            if (missingContexts.length > 0) {
+                errors.push(`Missing required contexts: ${missingContexts.join(', ')}`);
+            }
+        }
+
+        // Validate responseTypes array
+        if (!Array.isArray(capabilities.responseTypes)) {
+            errors.push('responseTypes must be an array');
+        } else {
+            const requiredResponseTypes = ['tool_response', 'memory_response', 'file_response', 'ai_response'];
+            const missingResponseTypes = requiredResponseTypes.filter(type => !capabilities.responseTypes.includes(type));
+            if (missingResponseTypes.length > 0) {
+                errors.push(`Missing required responseTypes: ${missingResponseTypes.join(', ')}`);
+            }
+        }
+
+        return {
+            valid: errors.length === 0,
+            errors: errors
+        };
+    }
+
+    exportAgentMetadata() {
+        // Static metadata export - no service calls, no execution, no async logic
+        // Reuses existing methods to build comprehensive metadata object
+        const capabilities = this.getAgentCapabilities();
+        const validation = this.validateAgentCapabilities(capabilities);
+
+        return {
+            capabilities: capabilities,
+            valid: validation.valid,
+            version: "8.4",
+            name: "Jarvis Agent Framework"
+        };
+    }
 }
 
 const agentService = new AgentService();

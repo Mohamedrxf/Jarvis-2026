@@ -214,111 +214,85 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     // Get the last user message for routing
     const lastMessage = messages[messages.length - 1];
     const userContent = lastMessage?.content || '';
+    const routeDecision = agentService.analyzeRequest(message);
+    const plan = agentService.buildExecutionPlan(routeDecision);
+    const execution = agentService.executeExecutionPlan(plan);
 
-    // Phase 8.0C: Agent-based routing
-    const routeDecision = agentService.analyzeRequest(userContent);
+    // Phase 8.3B: Response Strategy Integration
+    const responseStrategy = agentService.buildResponseStrategy(execution.route);
 
-    // Route based on AgentService decision
-    switch (routeDecision.route) {
-      case 'tool': {
-        // Execute existing ToolService pipeline
-        const toolPipelineResult = executeToolPipeline(userContent);
+    // Use responseStrategy to determine flow
+    if (!responseStrategy.useAI) {
+      // Tool response - no AI needed
+      const toolPipelineResult = executeToolPipeline(userContent);
 
-        if (toolPipelineResult) {
-          if (toolPipelineResult.success) {
-            return res.json({
-              success: true,
-              response: toolPipelineResult.output,
-              toolUsed: toolPipelineResult.tool
-            });
-          } else {
-            return res.json({
-              success: true,
-              response: `Tool execution failed: ${toolPipelineResult.output}`,
-              toolUsed: toolPipelineResult.tool,
-              error: toolPipelineResult.output
-            });
-          }
+      if (toolPipelineResult) {
+        if (toolPipelineResult.success) {
+          return res.json({
+            success: true,
+            response: toolPipelineResult.output,
+            toolUsed: toolPipelineResult.tool
+          });
+        } else {
+          return res.json({
+            success: true,
+            response: `Tool execution failed: ${toolPipelineResult.output}`,
+            toolUsed: toolPipelineResult.tool,
+            error: toolPipelineResult.output
+          });
         }
-        // If no tool matched, fall through to AI
-        break;
       }
+      // If no tool matched, fall through to AI
+    }
 
-      case 'memory': {
-        // Execute existing MemoryService pipeline
-        const userId = req.user.id;
-        const memoryContext = await memoryService.getMemoryContext(userId);
+    // AI response path (for memory, file, and ai routes)
+    const userId = req.user.id;
+    let enhancedMessages = messages;
 
-        // Enhance messages with memory context
-        const enhancedMessages = memoryContext ? [
+    // Add context based on route type
+    if (responseStrategy.type === 'memory') {
+      const memoryContext = await memoryService.getMemoryContext(userId);
+      if (memoryContext) {
+        enhancedMessages = [
           {
             role: 'system',
             content: memoryContext
           },
           ...messages
-        ] : messages;
-
-        const assistantResponse = await aiEngine.generateResponse(enhancedMessages);
-
-        return res.json({
-          success: true,
-          response: assistantResponse
-        });
+        ];
       }
+    } else if (responseStrategy.type === 'file') {
+      const userFiles = await fileService.getUserFiles(userId);
+      const fileContext = userFiles.length > 0
+        ? `\n\n[System: User has ${userFiles.length} file(s) in their library. You can reference these files in your response.]`
+        : '';
 
-      case 'file': {
-        // Execute existing FileService pipeline
-        const userId = req.user.id;
-        const userFiles = await fileService.getUserFiles(userId);
-
-        // Create context about available files
-        const fileContext = userFiles.length > 0
-          ? `\n\n[System: User has ${userFiles.length} file(s) in their library. You can reference these files in your response.]`
-          : '';
-
-        // Enhance messages with file context
-        const enhancedMessages = [
+      enhancedMessages = [
+        {
+          role: 'system',
+          content: `You are a helpful assistant with access to the user's file system.${fileContext}`
+        },
+        ...messages
+      ];
+    } else if (responseStrategy.type === 'ai' || responseStrategy.type === 'unknown') {
+      const memoryContext = await memoryService.getMemoryContext(userId);
+      if (memoryContext) {
+        enhancedMessages = [
           {
             role: 'system',
-            content: `You are a helpful assistant with access to the user's file system.${fileContext}`
+            content: memoryContext
           },
           ...messages
         ];
-
-        const assistantResponse = await aiEngine.generateResponse(enhancedMessages);
-
-        return res.json({
-          success: true,
-          response: assistantResponse
-        });
-      }
-
-      case 'ai':
-      default: {
-        // Continue existing AI pipeline
-        const userId = req.user.id;
-        const memoryContext = await memoryService.getMemoryContext(userId);
-
-        let enhancedMessages = messages;
-        if (memoryContext) {
-          // Add memory context as a system message at the beginning
-          enhancedMessages = [
-            {
-              role: 'system',
-              content: memoryContext
-            },
-            ...messages
-          ];
-        }
-
-        const assistantResponse = await aiEngine.generateResponse(enhancedMessages);
-
-        return res.json({
-          success: true,
-          response: assistantResponse
-        });
       }
     }
+
+    const assistantResponse = await aiEngine.generateResponse(enhancedMessages);
+
+    return res.json({
+      success: true,
+      response: assistantResponse
+    });
   } catch (error) {
     console.error('[Server Error] in /api/chat:', error.message);
     return res.status(500).json({
