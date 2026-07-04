@@ -7,6 +7,7 @@ const memoryService = require('./services/memoryService');
 const toolService = require('./services/toolService');
 const fileService = require('./services/fileService');
 const agentService = require('./services/agentService');
+const AgentDispatcher = require('./services/agents/AgentDispatcher');
 const authRoutes = require('./routes/auth');
 const authMiddleware = require('./middleware/authMiddleware');
 
@@ -214,12 +215,65 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     // Get the last user message for routing
     const lastMessage = messages[messages.length - 1];
     const userContent = lastMessage?.content || '';
-    const routeDecision = agentService.analyzeRequest(message);
+    const routeDecision = agentService.analyzeRequest(userContent);
+
+    // Phase 10.5A1: Build and validate execution plan
     const plan = agentService.buildExecutionPlan(routeDecision);
-    const execution = agentService.executeExecutionPlan(plan);
+    const validation = agentService.validateExecutionPlan(plan);
+
+    if (!validation.valid) {
+      throw new Error(validation.error || 'Execution plan validation failed');
+    }
+
+    // Phase 10.5A2: Build execution descriptor from validated plan
+    const executionOrder = agentService.buildAgentExecutionOrder(plan);
+    const sharedContextPlan = agentService.buildSharedContextPlan(executionOrder);
+    const executionPipeline = agentService.buildExecutionPipeline(executionOrder, sharedContextPlan);
+    const descriptor = agentService.buildExecutionDescriptor(executionPipeline);
+
+    // Phase 9.1C: Agent Dispatcher Integration
+    const dispatcher = new AgentDispatcher();
+    const context = {
+      message: userContent,
+      userId: req.user.id,
+      messages: messages
+    };
+    const agent = dispatcher.dispatch(routeDecision);
+
+    if (agent) {
+      const agentResult = agent.handle(context);
+      return res.json({
+        success: true,
+        response: agentResult
+      });
+    }
+
+    // Phase 10.5A3: Execute using descriptor
+    if (!descriptor.ready) {
+      throw new Error('Execution descriptor not ready');
+    }
+
+    const execution = await agentService.executeSequentialPipeline(descriptor, context);
+
+    // Phase 10.5A4: Build response from execution results
+    const executionResult = agentService.buildExecutionResult(execution.results);
+    const resultValidation = agentService.validateExecutionResult(executionResult);
+
+    if (!resultValidation.valid) {
+      throw new Error('Execution result validation failed');
+    }
+
+    const executionReport = agentService.buildExecutionReport(executionResult);
+    const agentSummary = agentService.buildAgentSummary(executionReport);
+    const finalResponse = agentService.buildFinalResponse(agentSummary);
+    const responseValidation = agentService.validateFinalResponse(finalResponse);
+
+    if (!responseValidation.valid) {
+      throw new Error('Final response validation failed');
+    }
 
     // Phase 8.3B: Response Strategy Integration
-    const responseStrategy = agentService.buildResponseStrategy(execution.route);
+    const responseStrategy = agentService.buildResponseStrategy(plan.route);
 
     // Use responseStrategy to determine flow
     if (!responseStrategy.useAI) {
