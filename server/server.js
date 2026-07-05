@@ -242,9 +242,12 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
 
     if (agent) {
       const agentResult = agent.handle(context);
+      const responseContent = typeof agentResult === 'object' && agentResult.content
+        ? agentResult.content
+        : agentResult;
       return res.json({
         success: true,
-        response: agentResult
+        response: responseContent
       });
     }
 
