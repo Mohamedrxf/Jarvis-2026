@@ -1,11 +1,6 @@
-const dotenv = require('dotenv');
-const path = require('path');
-
-// Load environment variables from the server directory if not already loaded
-dotenv.config({ path: path.join(__dirname, '../server/.env') });
-
 /**
  * AI Engine to interact with configured LLM Provider.
+ * Environment variables are loaded by server/server.js before this module is imported.
  */
 class AIEngine {
   constructor() {
