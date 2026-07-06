@@ -3,21 +3,67 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
 
+console.log('[STARTUP] Beginning server initialization...');
+
 // Load environment variables BEFORE importing modules that depend on them
 dotenv.config();
+console.log('[STARTUP] Environment variables loaded');
+
+process.on("exit", (code) => {
+  console.log("[EXIT]", code);
+});
+
+process.on("beforeExit", (code) => {
+  console.log("[BEFORE EXIT]", code);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("[UNCAUGHT EXCEPTION]");
+  console.error(err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[UNHANDLED REJECTION]");
+  console.error(reason);
+});
+console.log('[STARTUP] Process event handlers registered');
 
 // Now import modules that need environment variables
+console.log('[STARTUP] Loading AI Engine...');
 const aiEngine = require('../ai-engine');
+console.log('[STARTUP] AI Engine loaded');
+
+console.log('[STARTUP] Loading memory service...');
 const memoryService = require('./services/memoryService');
+console.log('[STARTUP] Memory service loaded');
+
+console.log('[STARTUP] Loading tool service...');
 const toolService = require('./services/toolService');
+console.log('[STARTUP] Tool service loaded');
+
+console.log('[STARTUP] Loading file service...');
 const fileService = require('./services/fileService');
+console.log('[STARTUP] File service loaded');
+
+console.log('[STARTUP] Loading agent service...');
 const agentService = require('./services/agentService');
+console.log('[STARTUP] Agent service loaded');
+
+console.log('[STARTUP] Loading Agent Dispatcher...');
 const AgentDispatcher = require('./services/agents/AgentDispatcher');
+console.log('[STARTUP] Agent Dispatcher loaded');
+
+console.log('[STARTUP] Loading auth routes...');
 const authRoutes = require('./routes/auth');
+console.log('[STARTUP] Auth routes loaded');
+
+console.log('[STARTUP] Loading auth middleware...');
 const authMiddleware = require('./middleware/authMiddleware');
+console.log('[STARTUP] Auth middleware loaded');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+console.log('[STARTUP] Express app created, port:', PORT);
 
 // Middleware
 app.use(cors({
@@ -28,18 +74,25 @@ app.use(express.json());
 
 // Auth routes
 app.use('/api/auth', authRoutes);
+console.log('[STARTUP] Auth routes registered');
 
 // Conversation routes
+console.log('[STARTUP] Loading conversation routes...');
 const conversationRoutes = require('./routes/conversations');
 app.use('/api/conversations', conversationRoutes);
+console.log('[STARTUP] Conversation routes registered');
 
 // Memory routes
+console.log('[STARTUP] Loading memory routes...');
 const memoryRoutes = require('./routes/memories');
 app.use('/api/memories', memoryRoutes);
+console.log('[STARTUP] Memory routes registered');
 
 // File routes
+console.log('[STARTUP] Loading file routes...');
 const fileRoutes = require('./routes/files');
 app.use('/api/files', fileRoutes);
+console.log('[STARTUP] File routes registered');
 
 // Tool Decision Layer (Phase 7.2A)
 /**
@@ -505,6 +558,32 @@ app.get('/api/status', (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
-  console.log(`[JARVIS Server] Running on http://localhost:${PORT}`);
-});
+console.log('[STARTUP] Starting server...');
+
+const startServer = (port) => {
+  const server = app.listen(port, () => {
+    console.log(`[JARVIS Server] Running on http://localhost:${port}`);
+    console.log('[STARTUP] Server listen callback executed');
+
+    // Verify server is actually listening
+    console.log('[STARTUP] Server listening:', server.listening);
+    console.log('[STARTUP] Active handles:', process._getActiveHandles().length);
+    console.log('[STARTUP] Active requests:', process._getActiveRequests().length);
+    console.log('[STARTUP] Server startup complete');
+  });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`[SERVER ERROR] Port ${port} is already in use, trying port ${port + 1}...`);
+      setTimeout(() => startServer(port + 1), 100);
+    } else {
+      console.error('[SERVER ERROR]', err);
+      process.exit(1);
+    }
+  });
+
+  return server;
+};
+
+const server = startServer(PORT);
+console.log('[STARTUP] app.listen() called');
