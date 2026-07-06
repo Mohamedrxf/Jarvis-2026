@@ -2,6 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
+
+// Load environment variables BEFORE importing modules that depend on them
+dotenv.config();
+
+// Now import modules that need environment variables
 const aiEngine = require('../ai-engine');
 const memoryService = require('./services/memoryService');
 const toolService = require('./services/toolService');
@@ -10,9 +15,6 @@ const agentService = require('./services/agentService');
 const AgentDispatcher = require('./services/agents/AgentDispatcher');
 const authRoutes = require('./routes/auth');
 const authMiddleware = require('./middleware/authMiddleware');
-
-// Load environment variables
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -168,6 +170,123 @@ function normalizeCurrency(currency) {
   return currencyMap[lower] || currency.toUpperCase();
 }
 
+/**
+ * Extract tool input from message based on tool type
+ * @param {string} message - User message
+ * @param {string} toolName - Tool name
+ * @returns {Object} Tool input parameters
+ */
+function extractToolInput(message, toolName) {
+  const lowerMessage = message.toLowerCase().trim();
+
+  switch (toolName) {
+    case 'weather': {
+      const match = message.match(/(?:weather|what'?s?\s+(?:the\s+)?weather)\s+(?:in|for)\s+(.+?)(?:\s+today)?$/i);
+      return match ? { city: match[1].trim() } : {};
+    }
+    case 'web_search': {
+      const match = message.match(/(?:web\s+search|search)\s+(?:for\s+)?(.+)/i);
+      return match ? { query: match[1].trim() } : {};
+    }
+    case 'currency': {
+      const match = lowerMessage.match(/(?:convert|currency)\s+(\d+(?:\.\d+)?)\s+(?:(\d+(?:\.\d+)?\s+)?([a-z]+)\s+to\s+([a-z]+))/i);
+      if (match) {
+        const amount = parseFloat(match[1]);
+        const fromCode = normalizeCurrency(match[3]);
+        const toCode = normalizeCurrency(match[4]);
+        return { amount, from: fromCode, to: toCode };
+      }
+      return {};
+    }
+    case 'calculator': {
+      const calcMatch = lowerMessage.match(/calculate\s+(.+?)(?:\s+please)?$/i);
+      return { expression: calcMatch ? calcMatch[1].trim() : message.trim() };
+    }
+    case 'uuid':
+    case 'datetime':
+      return {};
+    case 'password': {
+      const match = lowerMessage.match(/(?:generate\s+password|password)(?:\s+(\d+))?/i);
+      return { length: match && match[1] ? parseInt(match[1]) : 12 };
+    }
+    default:
+      return {};
+  }
+}
+
+/**
+ * Get operation name for memory/file agents based on route and message
+ * @param {string} route - Route type (memory, file, ai, tool)
+ * @param {string} message - User message
+ * @returns {Object} Object with operation and params
+ */
+function getOperationForRoute(route, message) {
+  const lowerMessage = message.toLowerCase().trim();
+
+  if (route === 'memory') {
+    if (lowerMessage.match(/(?:remember|save|store|memorize|note)\s+(?:this\s+)?(?:that\s+)?(.+)/i)) {
+      const contentMatch = message.match(/(?:remember|save|store|memorize|note)\s+(?:this\s+)?(?:that\s+)?(.+)/i);
+      const content = contentMatch ? contentMatch[1].trim() : message;
+      return {
+        operation: 'createMemory',
+        params: {
+          category: 'preferences',
+          content: content,
+          confidence: 1.0,
+          source: 'manual'
+        }
+      };
+    }
+    if (lowerMessage.match(/(?:what\s+do\s+you\s+remember|recall|search\s+memory|find\s+in\s+memory|do\s+you\s+know)/i)) {
+      const queryMatch = message.match(/(?:what\s+do\s+you\s+remember|recall|search\s+memory|find\s+in\s+memory|do\s+you\s+know)\s+(?:about\s+)?(.+)?/i);
+      const query = queryMatch && queryMatch[1] ? queryMatch[1].trim() : message;
+      return {
+        operation: 'searchMemories',
+        params: { query }
+      };
+    }
+    if (lowerMessage.match(/(?:show|list|get)\s+(?:my\s+)?memories/i)) {
+      return {
+        operation: 'getMemories',
+        params: {}
+      };
+    }
+    // Default memory operation
+    return {
+      operation: 'getMemoryContext',
+      params: { query: message }
+    };
+  }
+
+  if (route === 'file') {
+    if (lowerMessage.match(/^(?:upload|attach|add)\s+(?:my\s+|a\s+)?file$/i)) {
+      return {
+        operation: 'uploadFile',
+        params: {}
+      };
+    }
+    if (lowerMessage.match(/^(?:search|find|show|list|get)\b\s+(?:my\s+)?files?$/i)) {
+      return {
+        operation: 'getUserFiles',
+        params: {}
+      };
+    }
+    if (lowerMessage.match(/^(?:read|analyze|summarize|extract)\b\s+(?:my\s+)?(?:file|document|pdf|doc)$/i)) {
+      return {
+        operation: 'getUserFiles',
+        params: {}
+      };
+    }
+    // Default file operation
+    return {
+      operation: 'getUserFiles',
+      params: {}
+    };
+  }
+
+  return { operation: null, params: {} };
+}
+
 // Unified Tool Execution Pipeline (Phase 7.2C)
 /**
  * Centralized tool execution pipeline
@@ -233,10 +352,17 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
 
     // Phase 9.1C: Agent Dispatcher Integration
     const dispatcher = new AgentDispatcher();
+    const operationData = getOperationForRoute(routeDecision.route, userContent);
     const context = {
       message: userContent,
       userId: req.user.id,
-      messages: messages
+      messages: messages,
+      // Include route decision info for agents that need it
+      target: routeDecision.target,
+      input: routeDecision.target ? extractToolInput(userContent, routeDecision.target) : undefined,
+      // Add operation field for memory and file agents
+      operation: operationData.operation,
+      ...operationData.params
     };
     const agent = dispatcher.dispatch(routeDecision);
 
