@@ -33,6 +33,10 @@ console.log('[STARTUP] Loading AI Engine...');
 const aiEngine = require('../ai-engine');
 console.log('[STARTUP] AI Engine loaded');
 
+console.log('[STARTUP] Loading Prompt Manager...');
+const promptManager = require('./services/promptManager');
+console.log('[STARTUP] Prompt Manager loaded');
+
 console.log('[STARTUP] Loading memory service...');
 const memoryService = require('./services/memoryService');
 console.log('[STARTUP] Memory service loaded');
@@ -48,6 +52,10 @@ console.log('[STARTUP] File service loaded');
 console.log('[STARTUP] Loading agent service...');
 const agentService = require('./services/agentService');
 console.log('[STARTUP] Agent service loaded');
+
+console.log('[STARTUP] Loading Planner Agent (Phase 12.1)...');
+const plannerAgent = require('./services/plannerAgent');
+console.log('[STARTUP] Planner Agent loaded');
 
 console.log('[STARTUP] Loading Agent Dispatcher...');
 const AgentDispatcher = require('./services/agents/AgentDispatcher');
@@ -387,6 +395,29 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     // Get the last user message for routing
     const lastMessage = messages[messages.length - 1];
     const userContent = lastMessage?.content || '';
+
+    // Phase 12.1: Planner Agent - FIRST intelligence layer
+    // Analyze request and produce execution plan BEFORE routing
+    const plannerResult = plannerAgent.analyze({
+      message: userContent,
+      userId: req.user.id,
+      conversationHistory: messages
+    });
+
+    // Log planner output for debugging
+    console.log('[PlannerAgent] Intent:', plannerResult.intent);
+    console.log('[PlannerAgent] Route:', plannerResult.route);
+    console.log('[PlannerAgent] Agents:', plannerResult.agents);
+    console.log('[PlannerAgent] Execution Mode:', plannerResult.executionMode);
+    console.log('[PlannerAgent] Expected Output:', plannerResult.expectedOutputType);
+
+    // Validate planner result
+    const planValidation = plannerAgent.validatePlan(plannerResult);
+    if (!planValidation.valid) {
+      console.warn('[PlannerAgent] Plan validation warnings:', planValidation.errors);
+    }
+
+    // Use planner's route decision for downstream processing
     const routeDecision = agentService.analyzeRequest(userContent);
 
     // Phase 10.5A1: Build and validate execution plan
@@ -486,47 +517,18 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
 
     // AI response path (for memory, file, and ai routes)
     const userId = req.user.id;
-    let enhancedMessages = messages;
 
-    // Add context based on route type
-    if (responseStrategy.type === 'memory') {
-      const memoryContext = await memoryService.getMemoryContext(userId);
-      if (memoryContext) {
-        enhancedMessages = [
-          {
-            role: 'system',
-            content: memoryContext
-          },
-          ...messages
-        ];
-      }
-    } else if (responseStrategy.type === 'file') {
-      const userFiles = await fileService.getUserFiles(userId);
-      const fileContext = userFiles.length > 0
-        ? `\n\n[System: User has ${userFiles.length} file(s) in their library. You can reference these files in your response.]`
-        : '';
+    // Build system prompt using PromptManager (returns Message[])
+    const contextWindow = await promptManager.buildSystemPrompt({
+      userId: userId,
+      query: userContent,
+      route: responseStrategy.type,
+      messages: messages
+    });
 
-      enhancedMessages = [
-        {
-          role: 'system',
-          content: `You are a helpful assistant with access to the user's file system.${fileContext}`
-        },
-        ...messages
-      ];
-    } else if (responseStrategy.type === 'ai' || responseStrategy.type === 'unknown') {
-      const memoryContext = await memoryService.getMemoryContext(userId);
-      if (memoryContext) {
-        enhancedMessages = [
-          {
-            role: 'system',
-            content: memoryContext
-          },
-          ...messages
-        ];
-      }
-    }
-
-    const assistantResponse = await aiEngine.generateResponse(enhancedMessages);
+    // ContextWindowManager already returns properly formatted messages
+    // No need to wrap - just pass the context window directly to AIEngine
+    const assistantResponse = await aiEngine.generateResponse(contextWindow);
 
     return res.json({
       success: true,

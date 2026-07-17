@@ -4,6 +4,7 @@ const semanticMemoryService = require('./semanticMemoryService');
 const knowledgeGraphService = require('./knowledgeGraphService');
 const knowledgeReasoningService = require('./knowledgeReasoningService');
 const memoryIntelligenceService = require('./memoryIntelligenceService');
+const memoryRankingService = require('./memoryRankingService');
 
 class MemoryService {
     /**
@@ -260,19 +261,73 @@ class MemoryService {
      */
     async getMemoryContext(userId, query = null) {
         try {
-            // Use semantic memory service for enhanced context
-            const context = await semanticMemoryService.getSemanticMemoryContext(userId, query);
-            return context;
+            // Get all memories for the user
+            const memories = await this.getMemories(userId);
+
+            if (memories.length === 0) {
+                return '';
+            }
+
+            // Use MemoryRankingService to rank memories by relevance
+            const rankedMemories = await memoryRankingService.rankMemories(query, memories);
+
+            if (rankedMemories.length === 0) {
+                return '';
+            }
+
+            // Format ranked memories for prompt injection
+            return this.formatRankedMemoriesForPrompt(rankedMemories);
+
         } catch (error) {
             console.error('[MemoryService] Error getting memory context:', error.message);
-            // Fallback to evolution service
+            // Fallback to semantic memory service
             try {
-                const context = await memoryEvolutionService.getRankedMemoryContext(userId);
+                const context = await semanticMemoryService.getSemanticMemoryContext(userId, query);
                 return context;
             } catch (fallbackError) {
                 console.error('[MemoryService] Error getting fallback memory context:', fallbackError.message);
                 return '';
             }
+        }
+    }
+
+    /**
+     * Format ranked memories for prompt injection
+     * @private
+     */
+    formatRankedMemoriesForPrompt(rankedMemories) {
+        try {
+            // Group by category
+            const grouped = {};
+            rankedMemories.forEach(memory => {
+                if (!grouped[memory.category]) {
+                    grouped[memory.category] = [];
+                }
+                grouped[memory.category].push({
+                    content: memory.content,
+                    importance: memory.importance_score,
+                    relevance: memory.relevance_score
+                });
+            });
+
+            // Format for prompt
+            let context = '\n\n[USER MEMORIES - Use these to personalize responses]\n';
+            context += '[Memories are ranked by relevance and importance]\n\n';
+
+            for (const [category, items] of Object.entries(grouped)) {
+                context += `\n${category.toUpperCase()}:\n`;
+                items.forEach(item => {
+                    context += `- ${item.content}\n`;
+                });
+            }
+
+            context += '\n[END USER MEMORIES]\n';
+            context += `[Injected ${rankedMemories.length} most relevant memories]\n`;
+
+            return context;
+        } catch (error) {
+            console.error('[MemoryService] Error formatting ranked memories:', error.message);
+            return '';
         }
     }
 

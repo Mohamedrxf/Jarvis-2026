@@ -1,4 +1,5 @@
 const AIEngine = require('../../ai-engine');
+const promptManager = require('./promptManager');
 
 /**
  * LLM-Based Memory Extraction Service
@@ -16,59 +17,6 @@ class LLMMemoryExtractionService {
 
         // Valid categories for memories
         this.validCategories = ['identity', 'preferences', 'education', 'work', 'goals', 'skills'];
-
-        // System prompt for LLM memory extraction
-        this.systemPrompt = `You are a memory extraction assistant for JARVIS, an AI personal assistant. Your job is to analyze user messages and extract only meaningful, long-term memories that would be useful for personalizing future interactions.
-
-RULES:
-1. ONLY extract stable, long-term information that is worth remembering
-2. IGNORE: greetings, small talk, emotional states, temporary situations, questions, commands, generic chat
-3. EXTRACT: personal facts, preferences, goals, skills, education, work information, identity details
-4. Be conservative - if unsure, do NOT extract
-5. Each memory should be a clear, concise statement of fact
-6. Assign confidence score (0-1) based on how certain you are this is worth remembering
-
-CATEGORIES:
-- identity: name, age, location, nationality, family info
-- preferences: likes, dislikes, favorite things, habits
-- education: schools, degrees, courses, certifications
-- work: job title, company, industry, role
-- goals: aspirations, plans, targets, ambitions
-- skills: abilities, expertise, talents, competencies
-
-EXAMPLES OF WHAT TO EXTRACT:
-✓ "My name is John" → identity
-✓ "I work at Google as a software engineer" → work
-✓ "I love playing guitar" → preferences
-✓ "I want to learn machine learning" → goals
-✓ "I graduated from MIT" → education
-✓ "I'm fluent in Spanish" → skills
-
-EXAMPLES OF WHAT TO IGNORE:
-✗ "Hello!" (greeting)
-✗ "How are you?" (question)
-✗ "I'm feeling sad today" (emotional state)
-✗ "What's the weather?" (question)
-✗ "Thanks for your help" (gratitude)
-✗ "Can you help me with X?" (request)
-
-Return ONLY valid JSON in this exact format:
-{
-  "should_store": boolean,
-  "memories": [
-    {
-      "category": "identity | preferences | education | work | goals | skills",
-      "content": "Clear, concise memory content",
-      "confidence": 0.0-1.0
-    }
-  ]
-}
-
-If no memories should be stored, return:
-{
-  "should_store": false,
-  "memories": []
-}`;
     }
 
     /**
@@ -174,10 +122,13 @@ If no memories should be stored, return:
     async callLLM(message) {
         const userPrompt = `Analyze this user message and extract memories:\n\n"${message}"`;
 
+        // Use PromptManager for system prompt
+        const systemPrompt = promptManager.buildMemoryExtractionPrompt();
+
         const messages = [
             {
                 role: 'system',
-                content: this.systemPrompt
+                content: systemPrompt
             },
             {
                 role: 'user',
