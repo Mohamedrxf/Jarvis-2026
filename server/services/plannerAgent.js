@@ -231,7 +231,7 @@ class PlannerAgent {
         }
 
         // Memory patterns
-        if (/(remember|save|store|memorize|recall|what\s+do\s+you\s+remember|my\s+name\s+is|i\s+am\s+called|i\s+work\s+at|i\s+live\s+in)/i.test(lowerMessage)) {
+        if (/(remember|save|store|memorize|recall|what\s+do\s+you\s+remember|my\s+name\s+is|i\s+am\s+called|i\s+work\s+at|i\s+live\s+in|where\s+do\s+i\s+(work|study|live)|what\s+do\s+i\s+(work|study)|where\s+am\s+i)/i.test(lowerMessage)) {
             return 'memory';
         }
 
