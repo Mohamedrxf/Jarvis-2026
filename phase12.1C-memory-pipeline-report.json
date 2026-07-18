@@ -1,0 +1,43 @@
+{
+  "timestamp": "2026-07-18T07:16:48.161Z",
+  "phase": "12.1C",
+  "title": "Memory Pipeline Verification",
+  "backend": "http://localhost:5000",
+  "summary": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "errors": 0,
+    "successRate": "100.00%"
+  },
+  "results": [
+    {
+      "id": 1,
+      "description": "Memory Creation 1",
+      "status": "PASS",
+      "duration": 15,
+      "response": "my favourite language is Python"
+    },
+    {
+      "id": 2,
+      "description": "Memory Query 1",
+      "status": "PASS",
+      "duration": 11,
+      "response": "\n\n[USER MEMORIES - Use these to personalize responses]\n[Memories are ranked by relevance and importance]\n\n\nPREFERENCES:\n- my favourite language is Python\n\n[END USER MEMORIES]\n[Injected 1 most relevant memories]\n"
+    },
+    {
+      "id": 3,
+      "description": "Memory Creation 2",
+      "status": "PASS",
+      "duration": 10,
+      "response": "I study at SRM"
+    },
+    {
+      "id": 4,
+      "description": "Memory Query 2",
+      "status": "PASS",
+      "duration": 9,
+      "response": "\n\n[USER MEMORIES - Use these to personalize responses]\n[Memories are ranked by relevance and importance]\n\n\nPREFERENCES:\n- I study at SRM\n- my favourite language is Python\n\n[END USER MEMORIES]\n[Injected 2 most relevant memories]\n"
+    }
+  ]
+}

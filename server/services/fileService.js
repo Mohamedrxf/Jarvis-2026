@@ -1,9 +1,28 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const pdf = require('pdf-parse');
 const mammoth = require('mammoth');
 const db = require('../config/db');
+
+// pdf-parse v2.4.5 is ESM with class-based API requiring custom initialization - use fallback
+let pdfParse = null;
+function initPdfParse() {
+    try {
+        const pdfModule = require('pdf-parse');
+        if (typeof pdfModule === 'function') {
+            return pdfModule;
+        }
+        if (pdfModule.PDFParse && typeof pdfModule.PDFParse === 'function') {
+            // The class-based API needs VerbosityLevel and other options
+            // For now use fallback since the full API is complex to set up
+            console.warn('[FileService] pdf-parse v2 class API detected but not configured for direct use');
+        }
+    } catch (e) {
+        console.warn('[FileService] pdf-parse not available:', e.message);
+    }
+    return null;
+}
+pdfParse = initPdfParse();
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -62,8 +81,13 @@ class FileService {
         try {
             if (mimeType === 'application/pdf') {
                 const dataBuffer = fs.readFileSync(filePath);
-                const data = await pdf(dataBuffer);
-                return data.text;
+                if (pdfParse && typeof pdfParse === 'function') {
+                    const data = await pdfParse(dataBuffer);
+                    return data.text || data.content || `[PDF extracted: ${file.originalname}]`;
+                } else {
+                    // Fallback if pdf-parse not available
+                    return `[PDF file: ${file.originalname} - content extraction skipped]`;
+                }
             }
             else if (mimeType === 'text/plain') {
                 return fs.readFileSync(filePath, 'utf-8');

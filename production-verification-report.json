@@ -1,0 +1,118 @@
+{
+  "timestamp": "2026-07-18T07:09:46.929Z",
+  "backend": "http://localhost:5000",
+  "frontend": "http://localhost:5173",
+  "summary": {
+    "total": 10,
+    "passed": 10,
+    "failed": 0,
+    "errors": 0,
+    "successRate": "100.00%"
+  },
+  "results": [
+    {
+      "id": 1,
+      "description": "Greeting",
+      "status": "PASS",
+      "duration": 1443,
+      "response": "Hello! How can I help you today?"
+    },
+    {
+      "id": 2,
+      "description": "Calculation",
+      "status": "PASS",
+      "duration": 1116,
+      "response": "2 + 5 = **7**"
+    },
+    {
+      "id": 3,
+      "description": "AI Question",
+      "status": "PASS",
+      "duration": 15564,
+      "response": "Artificial Intelligence (AI) is a broad field of computer science that aims to create machines that can perform tasks that typically require human intelligence. In essence, it's about building systems that can learn, reason, understand, adapt, and make decisions in ways that mimic human cognitive abilities.\n\nHere's a breakdown of what that means:\n\n### Core Concepts of AI:\n\n1.  **Simulating Human Intelligence:** The fundamental goal is to make computers \"think\" like humans, or at least perform tasks that usually require human intellect. This includes:\n    *   **Learning:** Acquiring knowledge and skills from data or experience.\n    *   **Reasoning:** Applying logic to solve problems or draw conclusions.\n    *   **Problem-Solving:** Finding solutions to complex challenges.\n    *   **Perception:** Understanding and interpreting information from the environment (e.g., through vision or speech).\n    *   **Language Understanding:** Processing and generating human language (Natural Language Processing).\n    *   **Decision-Making:** Choosing the best course of action.\n\n2.  **Algorithms and Data:** AI isn't magic; it's built on complex algorithms (sets of rules or instructions) that process vast amounts of data. The \"intelligence\" comes from the algorithms identifying patterns, making predictions, and learning from the data they're given.\n\n3.  **Machine Learning (ML): The Engine of Modern AI:**\n    *   ML is a critical subfield of AI that gives systems the ability to learn from data without being explicitly programmed for every specific task. Instead of writing code for every possible scenario, you feed the machine data, and it learns the patterns and rules itself.\n    *   **Deep Learning (DL):** A subfield of ML that uses artificial neural networks with multiple layers (hence \"deep\") to learn complex patterns. Deep learning has driven many of the recent breakthroughs in AI, especially in areas like image recognition, speech processing, and natural language understanding.\n\n### How AI Works (Simplified):\n\nImagine you want an AI to identify cats in pictures:\n\n1.  **Data Collection:** You feed the AI thousands, even millions, of pictures, some with cats, some without. Each picture is \"labeled\" (e.g., \"cat\" or \"not cat\").\n2.  **Training:** The AI's algorithms (often a neural network) analyze these pictures. It starts to identify features and patterns that are common in cat pictures (e.g., shape of ears, whiskers, eyes). It constantly adjusts its internal parameters to get better at distinguishing cats from other objects.\n3.  **Model Creation:** After training, the AI creates a \"model\" – essentially a set of learned rules and patterns.\n4.  **Inference/Prediction:** Now, when you show the trained AI a new, unseen picture, it uses its model to predict whether a cat is present or not, often with a certain probability.\n\n### Types of AI:\n\n1.  **Narrow AI (ANI) / Weak AI:**\n    *   This is the *only type of AI that exists today*.\n    *   It's designed and trained for a specific task. It can be incredibly good at that task, often outperforming humans, but it has no general intelligence or consciousness.\n    *   **Examples:** Siri, Alexa, self-driving cars (focused on driving), recommendation engines (Netflix, Amazon), spam filters, chess-playing computers, facial recognition systems, ChatGPT (specialized in language).\n\n2.  **General AI (AGI) / Strong AI:**\n    *   **Hypothetical.** This refers to AI that possesses human-level cognitive abilities across a wide range of tasks, not just one specific area. An AGI could understand, learn, and apply intelligence to any intellectual task that a human can.\n    *   This is the stuff of science fiction (e.g., Data from Star Trek, Ava from Ex Machina). We are very far from achieving AGI.\n\n3.  **Super AI (ASI):**\n    *   **Hypothetical.** AI that surpasses human intelligence in virtually every field, including creativity, general knowledge, and problem-solving.\n    *   Even further into the future than AGI, and raises significant ethical and philosophical questions.\n\n### Examples of AI in Everyday Life:\n\n*   **Virtual Assistants:** Siri, Google Assistant, Alexa (voice recognition, natural language processing).\n*   **Recommendation Engines:** Netflix suggesting movies, Amazon suggesting products, Spotify recommending music.\n*   **Self-Driving Cars:** Using computer vision to \"see,\" machine learning to interpret road conditions, and decision-making algorithms to navigate.\n*   **Facial Recognition:** Unlocking your phone, tagging friends in photos.\n*   **Spam Filters:** Identifying and filtering unwanted emails.\n*   **Medical Diagnosis:** AI can analyze medical images (X-rays, MRIs) to detect diseases with high accuracy.\n*   **Fraud Detection:** Identifying unusual patterns in financial transactions.\n*   **Generative AI:** Tools like ChatGPT (generating text), DALL-E or Midjourney (generating images) that create new content based on prompts.\n\n### Benefits and Challenges of AI:\n\n**Benefits:**\n\n*   **Increased Efficiency and Automation:** Automating repetitive tasks, improving productivity.\n*   **Problem-Solving:** Tackling complex scientific, medical, and environmental challenges.\n*   **Enhanced Decision Making:** Providing data-driven insights.\n*   **Personalization:** Tailoring experiences to individual users.\n*   **Innovation:** Creating new products, services, and industries.\n\n**Challenges:**\n\n*   **Job Displacement:** Automation replacing human jobs.\n*   **Bias and Fairness:** AI models can inherit and amplify biases present in their training data.\n*   **Privacy Concerns:** Extensive data collection and analysis.\n*   **Ethical Dilemmas:** Who is responsible when AI makes a mistake? The potential for misuse.\n*   **Security Risks:** AI systems can be vulnerable to attacks or manipulation.\n*   **Misinformation:** Generative AI can create highly realistic fake content (deepfakes).\n\nIn summary, AI is a transformative technology that aims to equip machines with human-like intelligence. While currently limited to \"narrow AI,\" its impact is already profound and continues to reshape industries, societies, and our daily lives. Understanding its principles, capabilities, and limitations is crucial as it continues to evolve."
+    },
+    {
+      "id": 4,
+      "description": "Weather Query",
+      "status": "PASS",
+      "duration": 4,
+      "response": {
+        "success": true,
+        "result": {
+          "result": {
+            "city": "Chennai",
+            "temperature": "32°C",
+            "condition": "Hot and Humid",
+            "humidity": "78%",
+            "source": "mock"
+          }
+        },
+        "toolName": "weather"
+      }
+    },
+    {
+      "id": 5,
+      "description": "Memory Creation",
+      "status": "PASS",
+      "duration": 19,
+      "response": "my favourite language is Python"
+    },
+    {
+      "id": 6,
+      "description": "Memory Query",
+      "status": "PASS",
+      "duration": 10,
+      "response": "\n\n[USER MEMORIES - Use these to personalize responses]\n[Memories are ranked by relevance and importance]\n\n\nPREFERENCES:\n- my favourite language is Python\n\n[END USER MEMORIES]\n[Injected 1 most relevant memories]\n"
+    },
+    {
+      "id": 7,
+      "description": "UUID Generation",
+      "status": "PASS",
+      "duration": 4,
+      "response": {
+        "success": true,
+        "result": {
+          "result": "eee79e54-f700-47a8-80e4-d8faefd567bf"
+        },
+        "toolName": "uuid"
+      }
+    },
+    {
+      "id": 8,
+      "description": "Password Generation",
+      "status": "PASS",
+      "duration": 4,
+      "response": {
+        "success": true,
+        "result": {
+          "result": "Hj7ZdvKe9VE5"
+        },
+        "toolName": "password"
+      }
+    },
+    {
+      "id": 9,
+      "description": "Date/Time Query",
+      "status": "PASS",
+      "duration": 18,
+      "response": {
+        "success": true,
+        "result": {
+          "result": {
+            "date": "Saturday, July 18, 2026",
+            "time": "12:39:43 PM GMT+5:30",
+            "iso": "2026-07-18T07:09:43.075Z"
+          }
+        },
+        "toolName": "datetime"
+      }
+    },
+    {
+      "id": 10,
+      "description": "PDF Summarization",
+      "status": "PASS",
+      "duration": 3828,
+      "response": "I apologize, but I cannot directly access or \"see\" files that you upload to a chat interface. My capabilities are limited to processing the text you provide within our conversation.\n\nTo get a summary from me, please:\n\n1.  **Copy and paste the text** from the PDF directly into our chat.\n2.  **Provide a direct link** to the PDF if it's publicly available online (though my ability to access external links can sometimes be limited).\n\nOnce you provide the content, I'd be happy to summarize it for you!"
+    }
+  ]
+}

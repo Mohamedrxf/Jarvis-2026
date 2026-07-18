@@ -146,7 +146,7 @@ class AgentService {
         }
 
         // Memory query
-        if (lowerMessage.match(/(?:what\s+is\s+my|tell\s+me\s+about\s+my|do\s+i\s+like|am\s+i\s+)/i)) {
+        if (lowerMessage.match(/(?:what\s+is\s+my|tell\s+me\s+about\s+my|do\s+i\s+like|am\s+i\s+|where\s+do\s+i\s+(study|work|live)|what\s+do\s+i\s+(study|work)|where\s+am\s+i)/i)) {
             return { detected: true, reason: "Memory query intent detected" };
         }
 
